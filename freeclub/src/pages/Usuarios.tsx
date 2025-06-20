@@ -286,48 +286,43 @@ return (
                 </div>
               </div>
             )}
-                {modalType === 'edit' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-dark-700">Usuario:</label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full border border-dark-200 rounded px-3 py-2"
-                    value={selectedUsuario.username}
-                    onChange={e =>
-                      setSelectedUsuario({
-                        ...selectedUsuario,
-                        username: e.target.value
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-dark-700">Contraseña:</label>
-                  <div className="relative">
-                    <input
-                      type={showEditPassword ? 'text' : 'password'}
-                      className="mt-1 block w-full border border-dark-200 rounded px-3 py-2 pr-10"
-                      value={selectedUsuario.password || ''}
-                      onChange={e =>
-                        setSelectedUsuario({
-                          ...selectedUsuario,
-                          password: e.target.value
-                        })
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowEditPassword(!showEditPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
-                      tabIndex={-1}
-                    >
-                      {showEditPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )} 
+                  {modalType === 'edit' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-dark-700">Usuario:</label>
+                        <input
+                          type="text"
+                          className="mt-1 block w-full border border-dark-200 rounded px-3 py-2 bg-gray-100 cursor-not-allowed"
+                          value={selectedUsuario.username}
+                          disabled
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-dark-700">Contraseña:</label>
+                        <div className="relative">
+                          <input
+                            type={showEditPassword ? 'text' : 'password'}
+                            className="mt-1 block w-full border border-dark-200 rounded px-3 py-2 pr-10"
+                            value={selectedUsuario.password || ''}
+                            onChange={e =>
+                              setSelectedUsuario({
+                                ...selectedUsuario,
+                                password: e.target.value
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
+                            tabIndex={-1}
+                          >
+                            {showEditPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
             {modalType === 'permissions' && (
               <div className="space-y-4">
                 <label className="text-sm font-medium text-dark-700 mb-2 block">Permisos:</label>
@@ -365,11 +360,13 @@ return (
                     if (selectedUsuario) {
                       try {
                         // Enviar los permisos como nombres (strings)
-                        await updateUsuario(selectedUsuario.id, {
-                          username: selectedUsuario.username,
-                          password: selectedUsuario.password,
-                          permissions: selectedUsuario.permissions.map(nombre => PERMISO_NOMBRE_A_ID[nombre]), // convierte a IDs
-                        });
+                      await updateUsuario(selectedUsuario.id, {
+                        username: selectedUsuario.username,
+                        password: selectedUsuario.password,
+                        permissions: selectedUsuario.permissions
+                          .map(nombre => PERMISO_NOMBRE_A_ID[nombre])
+                          .filter((id): id is number => typeof id === "number"), // Solo IDs válidos
+                      });
                         // Refresca la lista de usuarios
                         const nuevosUsuarios = await fetchUsuarios();
                         setUsuarios(nuevosUsuarios);
