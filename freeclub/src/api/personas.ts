@@ -1,14 +1,17 @@
 
-export const API_URL = "http://localhost:5000"; // o el puerto donde corre Flask
+import { fetchWithAuth } from "./auth";
+
+const API_URL = "http://localhost:5000";
 
 
 export async function fetchPersonas() {
-  const response = await fetch(`${API_URL}/persons`);
+  const response = await fetchWithAuth(`${API_URL}/persons`);
+  if (!response.ok) throw new Error('No se pudieron obtener las personas');
   return response.json();
 }
 
 export async function fetchPersonaPorDni(dni: string) {
-  const response = await fetch(`${API_URL}/persons/${dni}`);
+  const response = await fetchWithAuth(`${API_URL}/persons/${dni}`);
   if (!response.ok) throw new Error('No se pudo obtener la persona');
   return response.json();
 }
@@ -43,7 +46,7 @@ export async function crearPersona(persona: {
     }
   });
 
-  const response = await fetch(`${API_URL}/persons/`, {
+  const response = await fetchWithAuth(`${API_URL}/persons/`, {
     method: 'POST',
     body: formData,
   });
@@ -61,7 +64,7 @@ export async function editarPersona(dni: string, personaData: Record<string, unk
     }
   });
 
-  const response = await fetch(`${API_URL}/persons/${dni}`, {
+  const response = await fetchWithAuth(`${API_URL}/persons/${dni}`, {
     method: "PUT",
     body: formData,
   });

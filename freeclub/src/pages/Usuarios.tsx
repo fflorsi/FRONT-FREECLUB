@@ -120,7 +120,8 @@ return (
 
     {/* Tabla de usuarios */}
     <Card>
-      <div className="overflow-x-auto">
+      {/* Vista Desktop - Tabla */}
+      <div className="hidden lg:block overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-dark-200">
@@ -218,6 +219,96 @@ return (
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Vista Mobile/Tablet - Cards */}
+      <div className="lg:hidden space-y-4">
+        {filteredUsuarios.map((usuario) => {
+          const persona = personas.find(p => p.dni === usuario.username);
+          return (
+            <div key={usuario.username} className="border border-dark-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+              {/* Header con avatar y usuario */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+                    <Shield size={20} className="text-primary-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-dark-900 truncate">
+                      {usuario.username}
+                    </p>
+                    <p className="text-sm text-dark-500">
+                      DNI: {usuario.username}
+                    </p>
+                  </div>
+                </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  usuario.activo 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-danger-100 text-danger-800'
+                }`}>
+                  {usuario.activo ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+
+              {/* Información de la persona */}
+              {persona && (
+                <div className="mb-3 p-3 bg-dark-50 rounded-lg">
+                  <p className="font-medium text-dark-900 text-sm">
+                    {persona.name} {persona.lastname}
+                  </p>
+                  <p className="text-sm text-dark-600 truncate">{persona.email}</p>
+                </div>
+              )}
+
+              {/* Permisos */}
+              <div className="mb-3">
+                <p className="text-xs text-dark-500 mb-2">Permisos:</p>
+                <div className="flex flex-wrap gap-1">
+                  {(usuario.permissions ?? []).slice(0, 3).map((permiso) => (
+                    <span
+                      key={permiso}
+                      className="px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800"
+                    >
+                      {getPermissionName(permiso)}
+                    </span>
+                  ))}
+                  {(usuario.permissions ?? []).length > 3 && (
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-dark-100 text-dark-800">
+                      +{(usuario.permissions ?? []).length - 3} más
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-dark-100">
+                <button 
+                  onClick={() => openModal(usuario, 'view')}
+                  className="p-2 text-primary-600 hover:bg-primary-50 rounded-full"
+                >
+                  <Eye size={16} />
+                </button>
+                {hasPermission(PERMISOS.EDITAR_USUARIOS) && (
+                  <>
+                    <button 
+                      onClick={() => openModal(usuario, 'edit')}
+                      className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      onClick={() => openModal(usuario, 'permissions')}
+                      className="p-2 text-cream-600 hover:bg-cream-50 rounded-full"
+                    >
+                      <Key size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
       {filteredUsuarios.length === 0 && (
         <div className="text-center py-8">

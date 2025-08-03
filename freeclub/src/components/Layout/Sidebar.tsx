@@ -162,7 +162,7 @@ const Sidebar: React.FC = () => {
       {/* Mobile Sidebar Toggle */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-primary-600 text-white rounded-lg shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-colors"
       >
         <Menu size={20} />
       </button>
@@ -170,12 +170,15 @@ const Sidebar: React.FC = () => {
       {/* Mobile Sidebar Overlay */}
       {isMobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsMobileOpen(false)} />
-          <div className="relative w-64 flex flex-col">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" 
+            onClick={() => setIsMobileOpen(false)} 
+          />
+          <div className="relative w-64 max-w-xs flex flex-col bg-white shadow-xl">
             <SidebarContent />
             <button
               onClick={() => setIsMobileOpen(false)}
-              className="absolute top-4 right-4 p-1 text-white hover:bg-primary-500 rounded"
+              className="absolute top-4 right-4 p-1 text-white hover:bg-primary-500 rounded transition-colors"
             >
               <X size={16} />
             </button>

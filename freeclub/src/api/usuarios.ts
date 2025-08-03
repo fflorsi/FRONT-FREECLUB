@@ -1,10 +1,12 @@
 import { Usuario } from "../types/index.ts";
+import { fetchWithAuth } from "./auth";
 
 export const API_URL = "http://localhost:5000"; // o el puerto donde corre Flask
 
 
 export async function fetchUsuarios() {
-  const response = await fetch(`${API_URL}/users`);
+  const response = await fetchWithAuth(`${API_URL}/users`);
+  if (!response.ok) throw new Error('No se pudieron obtener los usuarios');
   return response.json();
 }
 
@@ -25,7 +27,7 @@ export async function crearUsuario(usuario: {
     formData.append("permissions", usuario.permissions.join(","));
   }
 
-  const response = await fetch(`${API_URL}/users/`, {
+  const response = await fetchWithAuth(`${API_URL}/users/`, {
     method: 'POST',
     body: formData,
   });
@@ -45,7 +47,7 @@ export async function updateUsuario(id: number, usuario: {
     formData.append("permissions", usuario.permissions.join(","));
   }
 
-  const response = await fetch(`${API_URL}/users/${id}`, {
+  const response = await fetchWithAuth(`${API_URL}/users/${id}`, {
     method: 'PUT',
     body: formData,
   });

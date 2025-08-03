@@ -208,7 +208,8 @@ const handleDeletePersona = async (dni: string) => {
 
       {/* Lista de Personas */}
       <Card>
-        <div className="overflow-x-auto">
+        {/* Vista Desktop - Tabla */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-dark-200">
@@ -310,6 +311,105 @@ const handleDeletePersona = async (dni: string) => {
             </tbody>
           </table>
         </div>
+
+        {/* Vista Mobile/Tablet - Cards */}
+        <div className="lg:hidden space-y-4">
+          {filteredPersonas.map((persona) => (
+            <div key={persona.dni} className="border border-dark-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+              {/* Header con avatar y nombre */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+                    <span className="text-primary-700 font-semibold">
+                      {persona.name.charAt(0)}{persona.lastname.charAt(0)}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-dark-900 truncate">
+                      {persona.name} {persona.lastname}
+                    </p>
+                    <p className="text-sm text-dark-500">
+                      DNI: {persona.dni}
+                    </p>
+                  </div>
+                </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  persona.member 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-danger-100 text-danger-800'
+                }`}>
+                  {persona.member ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+
+              {/* Información de contacto */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-sm">
+                <div>
+                  <span className="text-dark-500">Email:</span>
+                  <p className="text-dark-900 truncate">{persona.email}</p>
+                </div>
+                <div>
+                  <span className="text-dark-500">Teléfono:</span>
+                  <p className="text-dark-900">{persona.phone}</p>
+                </div>
+              </div>
+
+              {/* Roles y faltas */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <div className="flex flex-wrap gap-1">
+                  {persona.roles.map((role) => (
+                    <span
+                      key={role}
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(role)}`}
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-dark-500">Faltas:</span>
+                  <span className={`text-xs font-medium ${getFaltasColor(persona.faltas)}`}>
+                    {persona.faltas || 0}
+                  </span>
+                  {(persona.faltas || 0) > 3 && (
+                    <AlertCircle size={14} className="text-danger-500" />
+                  )}
+                </div>
+              </div>
+
+              {/* Fecha de ingreso y acciones */}
+              <div className="flex items-center justify-between pt-2 border-t border-dark-100">
+                <p className="text-xs text-dark-500">
+                  Desde: {new Date(persona.join_date).toLocaleDateString('es-AR')}
+                </p>
+                <div className="flex items-center space-x-2">
+                  <button
+                    className="p-2 text-primary-600 hover:bg-primary-50 rounded-full"
+                    onClick={() => handleViewPersona(persona)}
+                  >
+                    <Eye size={16} />
+                  </button>
+                  {hasPermission(PERMISOS.EDITAR_PERSONAS) && (
+                    <button 
+                      onClick={() => handleEditPersona(persona)}
+                      className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full"
+                    >
+                      <Edit size={16} />
+                    </button>
+                  )}
+                  {hasPermission(PERMISOS.ELIMINAR_PERSONAS) && (
+                    <button 
+                      onClick={() => handleDeletePersona(persona.dni)}
+                      className="p-2 text-danger-600 hover:bg-danger-50 rounded-full"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
         
         {filteredPersonas.length === 0 && (
           <div className="text-center py-8">
@@ -330,78 +430,35 @@ const handleDeletePersona = async (dni: string) => {
 
       {showViewModal && viewPersona && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <div className="p-6">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="p-4 sm:p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-dark-900">
+          <h3 className="text-lg sm:text-xl font-semibold text-dark-900">
             Detalles de la Persona
           </h3>
           <button
             onClick={handleCloseViewModal}
-            className="text-dark-400 hover:text-dark-600"
+            className="text-dark-400 hover:text-dark-600 p-1"
           >
             ✕
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center space-x-3 md:col-span-2">
-            <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-              <span className="text-primary-700 font-semibold text-lg">
-                {viewPersona.name.charAt(0)}{viewPersona.lastname.charAt(0)}
-              </span>
-            </div>
-            <div>
-              <p className="font-medium text-dark-900 text-lg">
-                {viewPersona.name} {viewPersona.lastname}
-              </p>
-              <p className="text-sm text-dark-500">
-                Desde: {new Date(viewPersona.join_date).toLocaleDateString('es-AR')}
-              </p>
-            </div>
+        
+        {/* Header con avatar y info principal */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6 p-4 bg-primary-50 rounded-lg">
+          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center">
+            <span className="text-primary-700 font-semibold text-xl">
+              {viewPersona.name.charAt(0)}{viewPersona.lastname.charAt(0)}
+            </span>
           </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">DNI:</label>
-            <p className="text-dark-900">{viewPersona.dni}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Email:</label>
-            <p className="text-dark-900">{viewPersona.email}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Teléfono:</label>
-            <p className="text-dark-900">{viewPersona.phone}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Dirección:</label>
-            <p className="text-dark-900">{viewPersona.address}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Fecha de Nacimiento:</label>
-            <p className="text-dark-900">{new Date(viewPersona.birthdate).toLocaleDateString('es-AR')}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Cobertura Médica:</label>
-            <p className="text-dark-900">{viewPersona.medical_coverage}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Tipo de Sangre:</label>
-            <p className="text-dark-900">{viewPersona.blood_type}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Condiciones Médicas:</label>
-            <p className="text-dark-900">{viewPersona.medical_conditions}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Teléfono de Emergencia:</label>
-            <p className="text-dark-900">{viewPersona.emergency_phone}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Parentesco:</label>
-            <p className="text-dark-900">{viewPersona.emergency_relation}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Roles:</label>
-            <div className="flex flex-wrap gap-2 mt-1">
+          <div className="flex-1">
+            <p className="font-medium text-dark-900 text-xl">
+              {viewPersona.name} {viewPersona.lastname}
+            </p>
+            <p className="text-sm text-dark-500">
+              Miembro desde: {new Date(viewPersona.join_date).toLocaleDateString('es-AR')}
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
               {viewPersona.roles.map((role) => (
                 <span
                   key={role}
@@ -412,24 +469,94 @@ const handleDeletePersona = async (dni: string) => {
               ))}
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Faltas:</label>
-            <span className={`ml-2 ${getFaltasColor(viewPersona.faltas)}`}>
-              {viewPersona.faltas || 0}
-            </span>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-dark-700">Estado:</label>
-            <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+          <div className="text-right">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               viewPersona.member 
                 ? 'bg-emerald-100 text-emerald-800' 
                 : 'bg-danger-100 text-danger-800'
             }`}>
               {viewPersona.member ? 'Activo' : 'Inactivo'}
             </span>
+            <div className="mt-2">
+              <span className="text-sm text-dark-500">Faltas: </span>
+              <span className={`font-medium ${getFaltasColor(viewPersona.faltas)}`}>
+                {viewPersona.faltas || 0}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex justify-end space-x-3 mt-6">
+
+        {/* Información detallada en grid responsive */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Información Personal */}
+          <div className="space-y-4">
+            <h4 className="font-semibold text-dark-900 text-lg border-b border-dark-200 pb-2">
+              Información Personal
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">DNI:</label>
+                <p className="text-dark-900 font-mono">{viewPersona.dni}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Fecha de Nacimiento:</label>
+                <p className="text-dark-900">{new Date(viewPersona.birthdate).toLocaleDateString('es-AR')}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Tipo de Sangre:</label>
+                <p className="text-dark-900">{viewPersona.blood_type || 'No especificado'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Información de Contacto */}
+          <div className="space-y-4">
+            <h4 className="font-semibold text-dark-900 text-lg border-b border-dark-200 pb-2">
+              Contacto
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Email:</label>
+                <p className="text-dark-900 break-all">{viewPersona.email}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Teléfono:</label>
+                <p className="text-dark-900">{viewPersona.phone}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Dirección:</label>
+                <p className="text-dark-900">{viewPersona.address}</p>
+                {viewPersona.address_details && (
+                  <p className="text-sm text-dark-600">{viewPersona.address_details}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Información Médica y Emergencia */}
+          <div className="space-y-4 sm:col-span-2 lg:col-span-1">
+            <h4 className="font-semibold text-dark-900 text-lg border-b border-dark-200 pb-2">
+              Médico y Emergencia
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Cobertura Médica:</label>
+                <p className="text-dark-900">{viewPersona.medical_coverage || 'No especificada'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Condiciones Médicas:</label>
+                <p className="text-dark-900">{viewPersona.medical_conditions || 'Ninguna'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-dark-700 block">Contacto de Emergencia:</label>
+                <p className="text-dark-900">{viewPersona.emergency_phone}</p>
+                <p className="text-sm text-dark-600">({viewPersona.emergency_relation})</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3 mt-8 pt-4 border-t border-dark-200">
           <Button variant="secondary" onClick={handleCloseViewModal}>
             Cerrar
           </Button>

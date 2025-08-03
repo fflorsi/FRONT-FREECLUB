@@ -10,7 +10,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar />
       <main className="flex-1 lg:ml-64 transition-all duration-300">
-        <div className="p-4 lg:p-6 pt-16 lg:pt-6">
+        <div className="p-3 sm:p-4 lg:p-6 pt-20 lg:pt-6">
           {children}
         </div>
       </main>

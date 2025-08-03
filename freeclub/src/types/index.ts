@@ -50,11 +50,12 @@ export interface Asistencia {
 }
 
 export interface AuthUser {
-  nombreUsuario: string;
-  personaDni: string;
+  id: number;
+  username: string;
+  permissions: string[];
   permisos: string[];
   persona: Persona;
-  password:string;
+  personaDni: string;
 }
 
 export interface EventoCalendario {

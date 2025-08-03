@@ -113,22 +113,22 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         {estadisticas.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <Card key={index} className={`${stat.bgColor} border-none`}>
               <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-sm font-medium ${stat.textColor}`}>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs sm:text-sm font-medium ${stat.textColor} mb-1`}>
                     {stat.title}
                   </p>
-                  <p className={`text-2xl font-bold ${stat.textColor} mt-1`}>
+                  <p className={`text-xl sm:text-2xl font-bold ${stat.textColor}`}>
                     {stat.value}
                   </p>
                 </div>
-                <div className={`p-3 rounded-full ${stat.color}`}>
-                  <Icon size={24} className="text-white" />
+                <div className={`p-2 sm:p-3 rounded-full ${stat.color} flex-shrink-0`}>
+                  <Icon size={20} className="text-white sm:w-6 sm:h-6" />
                 </div>
               </div>
             </Card>
@@ -136,27 +136,27 @@ const Dashboard: React.FC = () => {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Alumnos con Faltas */}
         <Card title="Alumnos con Faltas" subtitle="Seguimiento de asistencia">
           <div className="space-y-3">
             {alumnosConFaltas.length > 0 ? (
               alumnosConFaltas.map((alumno) => (
                 <div key={alumno.dni} className="flex items-center justify-between p-3 bg-dark-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-primary-300 rounded-full flex items-center justify-center">
-                      <span className="text-primary-700 font-medium text-sm">
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary-300 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary-700 font-medium text-xs sm:text-sm">
                         {alumno.nombre?.charAt(0)}{alumno.apellido?.charAt(0)}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-medium text-dark-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-dark-900 text-sm sm:text-base truncate">
                         {alumno.nombre} {alumno.apellido}
                       </p>
-                      <p className="text-sm text-dark-500">DNI: {alumno.dni}</p>
+                      <p className="text-xs sm:text-sm text-dark-500">DNI: {alumno.dni}</p>
                     </div>
                   </div>
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  <div className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium flex-shrink-0 ${
                     (alumno.faltas || 0) > 3 
                       ? 'bg-danger-100 text-danger-800' 
                       : (alumno.faltas || 0) > 1 
@@ -168,7 +168,7 @@ const Dashboard: React.FC = () => {
                 </div>
               ))
             ) : (
-              <p className="text-dark-500 text-center py-4">
+              <p className="text-dark-500 text-center py-4 text-sm">
                 No hay alumnos con faltas registradas
               </p>
             )}
@@ -178,7 +178,7 @@ const Dashboard: React.FC = () => {
         {/* Actividades Recientes */}
         <Card title="Actividades Recientes" subtitle="Últimas asistencias tomadas">
           <div className="space-y-3">
-            <p className="text-dark-500 text-center py-4">
+            <p className="text-dark-500 text-center py-4 text-sm">
               No hay asistencias registradas
             </p>
           </div>

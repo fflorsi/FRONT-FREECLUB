@@ -1,9 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AuthUser, Persona, Usuario } from '../types';
-// import { mockPersonas, mockUsuarios } from '../data/mockData';
-import { fetchUsuarios } from '../api/usuarios';
-import { fetchPersonaPorDni } from '../api/personas';
-
+import { AuthUser } from '../types';
+import { loginApi } from '../api/auth';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -28,48 +25,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simular carga de sesión guardada
+    // Verificar si hay una sesión guardada
     const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    const savedToken = localStorage.getItem('authToken');
+    
+    if (savedUser && savedToken) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (error) {
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('authToken');
+      }
     }
     setIsLoading(false);
   }, []);
 
-const login = async (username: string, password: string) => {
-  try {
-    const usuarios = await fetchUsuarios();
-    const foundUser = usuarios.find(
-      (u: Usuario) =>
-        u.username === username &&
-        u.password === password
-    );
-    if (!foundUser) return false;
-
-    // Obtener datos de persona usando el dni (que es el username)
-    const persona = await fetchPersonaPorDni(foundUser.personaDni);
-
-    // Unir usuario y persona, mapeando permissions a permisos
-    const userWithPersona = { 
-      ...foundUser, 
-      persona, 
-      permisos: foundUser.permissions // <--- este mapeo es clave
-    };
-    setUser(userWithPersona);
-    localStorage.setItem('currentUser', JSON.stringify(userWithPersona));
-    return true;
-  } catch {
-    return false;
-  }
-};
+  const login = async (username: string, password: string) => {
+    try {
+      const result = await loginApi(username, password);
+      
+      if (result.success && result.user && result.token) {
+        setUser(result.user);
+        localStorage.setItem('currentUser', JSON.stringify(result.user));
+        localStorage.setItem('authToken', result.token);
+        return true;
+      } else {
+        console.error('Error en login:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      return false;
+    }
+  };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('authToken');
   };
   
   const hasPermission = (permiso: string) => {
-    return user?.permisos?.includes?.(permiso) ?? false;
+    return user?.permissions?.includes?.(permiso) ?? false;
   };
 
   return (
