@@ -79,11 +79,15 @@ const toggleUsuarioStatus = (nombreUsuario: string) => {
     setSelectedUsuario(usuario);
     setModalType(type);
     setShowModal(true);
+    // Prevenir scroll del body
+    document.body.classList.add('modal-open');
   };
 
   const closeModal = () => {
     setSelectedUsuario(null);
     setShowModal(false);
+    // Restaurar scroll del body
+    document.body.classList.remove('modal-open');
   };
 
   const getPermissionName = (permission: string) => {
@@ -319,7 +323,7 @@ return (
 
     {/* Modal */}
     {showModal && selectedUsuario && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">

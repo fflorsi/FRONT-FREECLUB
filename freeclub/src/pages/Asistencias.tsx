@@ -16,6 +16,18 @@ const Asistencias: React.FC = () => {
   const [fechaHasta, setFechaHasta] = useState('');
   const [selectedAsistencia, setSelectedAsistencia] = useState<Asistencia | null>(null);
 
+  const handleOpenModal = (asistencia: Asistencia) => {
+    setSelectedAsistencia(asistencia);
+    // Prevenir scroll del body
+    document.body.classList.add('modal-open');
+  };
+
+  const handleCloseModal = () => {
+    setSelectedAsistencia(null);
+    // Restaurar scroll del body
+    document.body.classList.remove('modal-open');
+  };
+
   const filteredAsistencias = useMemo(() => {
     return asistencias.filter(asistencia => {
       const persona = mockPersonas.find(p => p.dni === asistencia.personaDni);
@@ -239,7 +251,7 @@ const Asistencias: React.FC = () => {
                     <p className="text-sm text-gray-600">DNI: {persona?.dni}</p>
                   </div>
                   <button 
-                    onClick={() => setSelectedAsistencia(asistencia)}
+                    onClick={() => handleOpenModal(asistencia)}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg flex-shrink-0"
                   >
                     <Eye size={20} />
@@ -286,14 +298,14 @@ const Asistencias: React.FC = () => {
 
       {/* Modal de Detalle - Optimizado para móvil */}
       {selectedAsistencia && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-4">
+        <div className="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-w-md mx-auto transform transition-all">
             <div className="p-6">
               {/* Header del modal */}
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900">Detalle de Asistencia</h3>
                 <button
-                  onClick={() => setSelectedAsistencia(null)}
+                  onClick={handleCloseModal}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                 >
                   <XCircle size={20} />
