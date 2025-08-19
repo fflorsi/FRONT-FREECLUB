@@ -1,8 +1,8 @@
 # FRONT-FREECLUB
 
-npm install para las depedencias
+npm install --> para las depedencias
 npm run dev
 
 usuario prueba admin
-username: 12345679
-password: 12345
+username: 27313990
+password: flor123
