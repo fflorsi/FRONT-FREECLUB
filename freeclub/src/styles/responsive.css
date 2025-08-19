@@ -88,11 +88,13 @@
 
 /* Botones responsive */
 .btn-responsive {
+  padding-top: 1.5em;
   @apply px-3 py-2 text-sm;
 }
 
 @media (min-width: 640px) {
   .btn-responsive {
+    padding-top: 1.5em;
     @apply px-4 py-2 text-base;
   }
 }
@@ -231,12 +233,24 @@
   z-index: 9999 !important;
 }
 
+/* Override Tailwind space-y-6 only in modals */
+.modal-responsive .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  --tw-space-y-reverse: 0 !important;
+}
+
+/* Completely disable space-y-6 in modals */
+.modal-responsive .space-y-6 > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 /* Prevenir scroll del body cuando modal está abierto */
 .modal-open {
   overflow: hidden !important;
   height: 100vh !important;
 }
-
 /* Reset de estilos para el contenedor raíz */
 html, body {
   margin: 0;

@@ -88,7 +88,7 @@ const LoginForm: React.FC = () => {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full"
+            className="w-full mt-4"
             icon={LogIn}
           >
             {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
