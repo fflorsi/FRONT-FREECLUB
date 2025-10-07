@@ -44,9 +44,7 @@ const TomarAsistencia: React.FC = () => {
     ));
   };
 
-  const marcarTodosPresentes = () => {
-    setAsistenciasTemp(prev => prev.map(a => ({ ...a, estado: 'presente' as const })));
-  };
+
 
   const guardarAsistencias = async () => {
     if (!actividadSeleccionada || asistenciasTemp.length === 0) return;
@@ -98,18 +96,6 @@ const TomarAsistencia: React.FC = () => {
       {/* Lista de asistencia - Solo si hay actividad seleccionada */}
       {actividadSeleccionada && asistenciasTemp.length > 0 && (
         <>
-          {/* Botón marcar todos presentes */}
-          <div className="mb-4 sm:mb-6">
-            <button
-              onClick={marcarTodosPresentes}
-              className="w-full bg-green-700 hover:bg-green-800 text-white py-4 sm:py-6 px-4 sm:px-6 rounded-xl font-bold text-lg sm:text-xl shadow-lg transition-all active:scale-95"
-            >
-              <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-                <CheckCircle className="w-5 h-5 sm:w-7 sm:h-7" />
-                <span>MARCAR TODOS PRESENTES</span>
-              </div>
-            </button>
-          </div>
 
           {/* Lista de alumnos */}
           <div className="space-y-3 sm:space-y-4 mb-20 sm:mb-24">
