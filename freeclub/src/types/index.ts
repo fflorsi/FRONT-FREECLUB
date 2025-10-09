@@ -94,3 +94,37 @@ export const PERMISOS = {
   TOMAR_ASISTENCIA: 'TOMAR_ASISTENCIA',
   ADMINISTRAR_SISTEMA: 'ADMINISTRAR_SISTEMA'
 } as const;
+
+// Agregar interfaces para datos del backend
+export interface AsistenciaBackend {
+  id: number;
+  person_dni: string;
+  supervisor_dni: string;
+  assignation_id: number;
+  user_id: number;
+  status: number;
+  day: string;
+  person: string;
+  supervisor: string;
+  user: number;
+  assignation: number;
+}
+
+export interface AsignacionBackend {
+  id: number;
+  dni: string;
+  activity_id: number;
+  role_id: number;
+  day: string;
+  start_time: string;
+  end_time: string;
+  role: string;
+  person: string;
+  activity: string;
+}
+
+export interface ActividadBackend {
+  id: number;
+  name: string;
+  category: string;
+}

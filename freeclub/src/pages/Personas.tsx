@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, Eye, Filter, AlertCircle } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Eye, Filter } from 'lucide-react';
 import Card from '../components/Common/Card';
 import Button from '../components/Common/Button';
 import PersonaForm from '../forms/PersonaForm';
@@ -16,27 +16,34 @@ const Personas: React.FC = () => {
   //const [personas, setPersonas] = useState<Persona[]>(mockPersonas);
   const [personas, setPersonas] = useState<Persona[]>([]);
   // const [usuarios, setUsuarios] = useState<Usuario[]>(mockUsuarios);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [_usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
 
   useEffect(() => {
-     fetchPersonas()
-    .then(data => {
-      setPersonas(data);
-      console.log('Personas cargadas:', data); // <-- Agrega esto
-    })
-    .catch(console.error);
-
-        fetchUsuarios() 
-    .then(setUsuarios)
-    .catch(console.error);
-}, []);
+    const cargarDatos = async () => {
+      try {
+        setLoading(true);
+        const [personasData, usuariosData] = await Promise.all([
+          fetchPersonas(),
+          fetchUsuarios()
+        ]);
+        setPersonas(personasData);
+        setUsuarios(usuariosData);
+      } catch (e) {
+        console.error('Error al cargar personas/usuarios:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargarDatos();
+  }, []);
  
   
   const filteredPersonas = useMemo(() => {
@@ -64,12 +71,7 @@ const Personas: React.FC = () => {
 
   const roles = ['Administrador', 'Socio', 'Profesor'];
 
-  const getFaltasColor = (faltas: number | undefined) => {
-    if (!faltas) return 'text-emerald-600';
-    if (faltas > 3) return 'text-danger-600 font-bold';
-    if (faltas > 1) return 'text-cream-600';
-    return 'text-emerald-600';
-  };
+  
 
   const getRoleColor = (role: string) => {
     const colors = {
@@ -147,6 +149,14 @@ const handleDeletePersona = async (dni: string) => {
   };
 
   return (
+    loading ? (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando personas...</p>
+        </div>
+      </div>
+    ) : (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -221,7 +231,7 @@ const handleDeletePersona = async (dni: string) => {
                 <th className="text-left py-3 px-4 font-semibold text-dark-700">DNI</th>
                 <th className="text-left py-3 px-4 font-semibold text-dark-700">Contacto</th>
                 <th className="text-left py-3 px-4 font-semibold text-dark-700">Roles</th>
-                <th className="text-left py-3 px-4 font-semibold text-dark-700">Faltas</th>
+                
                 <th className="text-left py-3 px-4 font-semibold text-dark-700">Estado</th>
                 <th className="text-left py-3 px-4 font-semibold text-dark-700">Acciones</th>
               </tr>
@@ -265,16 +275,7 @@ const handleDeletePersona = async (dni: string) => {
                       ))}
                     </div>
                   </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center space-x-1">
-                      <span className={getFaltasColor(persona.faltas)}>
-                        {persona.faltas || 0}
-                      </span>
-                      {(persona.faltas || 0) > 3 && (
-                        <AlertCircle size={16} className="text-danger-500" />
-                      )}
-                    </div>
-                  </td>
+                  
                   <td className="py-4 px-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       persona.member 
@@ -358,7 +359,7 @@ const handleDeletePersona = async (dni: string) => {
                 </div>
               </div>
 
-              {/* Roles y faltas */}
+              {/* Roles */}
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <div className="flex flex-wrap gap-1">
                   {persona.roles.map((role) => (
@@ -369,15 +370,6 @@ const handleDeletePersona = async (dni: string) => {
                       {role}
                     </span>
                   ))}
-                </div>
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-dark-500">Faltas:</span>
-                  <span className={`text-xs font-medium ${getFaltasColor(persona.faltas)}`}>
-                    {persona.faltas || 0}
-                  </span>
-                  {(persona.faltas || 0) > 3 && (
-                    <AlertCircle size={14} className="text-danger-500" />
-                  )}
                 </div>
               </div>
 
@@ -481,12 +473,6 @@ const handleDeletePersona = async (dni: string) => {
             }`}>
               {viewPersona.member ? 'Activo' : 'Inactivo'}
             </span>
-            <div className="mt-2">
-              <span className="text-sm text-dark-500">Faltas: </span>
-              <span className={`font-medium ${getFaltasColor(viewPersona.faltas)}`}>
-                {viewPersona.faltas || 0}
-              </span>
-            </div>
           </div>
         </div>
 
@@ -569,7 +555,8 @@ const handleDeletePersona = async (dni: string) => {
     </div>
   </div>
 )}
-    </div>
+  </div>
+  )
   );
 };
 

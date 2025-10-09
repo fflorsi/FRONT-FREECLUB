@@ -1,8 +1,32 @@
-
+import { RoleResponse } from './roles';
 import { fetchWithAuth } from "./auth";
 
 const API_URL = "http://localhost:5000";
+export interface PersonaResponse {
+  dni: string;
+  name: string;
+  lastname: string;
+  cuit?: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  address_details?: string;
+  birthdate?: string;
+  medical_coverage?: string;
+  blood_type?: string;
+  medical_conditions?: string;
+  emergency_phone?: string;
+  emergency_relation?: string;
+  join_date?: string;
+  roles: string[];
+  member: boolean;
+}
 
+export async function getPersonas(): Promise<PersonaResponse[]> {
+  const response = await fetchWithAuth(`${API_URL}/persons`);
+  if (!response.ok) throw new Error('No se pudieron obtener las personas');
+  return response.json();
+}
 
 export async function fetchPersonas() {
   const response = await fetchWithAuth(`${API_URL}/persons`);

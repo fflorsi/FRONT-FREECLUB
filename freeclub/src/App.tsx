@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Personas from './pages/Personas';
 import Usuarios from './pages/Usuarios';
+import Actividades from './pages/Actividades';
 import Asistencias from './pages/Asistencias';
 import TomarAsistencia from './pages/TomarAsistencia';
 import Calendario from './pages/Calendario';
@@ -54,6 +55,14 @@ const AppContent: React.FC = () => {
           element={
             <ProtectedRoute permission={PERMISOS.VER_ASISTENCIAS}>
               <Asistencias />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/actividades" 
+          element={
+            <ProtectedRoute permission={PERMISOS.VER_PERSONAS}>
+              <Actividades />
             </ProtectedRoute>
           } 
         />

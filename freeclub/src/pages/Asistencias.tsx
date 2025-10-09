@@ -1,92 +1,169 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, Calendar, User, CheckCircle, XCircle, AlertCircle, Download, Eye } from 'lucide-react';
 import Card from '../components/Common/Card';
 import Button from '../components/Common/Button';
-import { mockAsistencias, mockPersonas, mockActividades } from '../data/mockData';
-import { Asistencia } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { getAsistencias, AsistenciaResponse } from '../api/asistencias';
+import { getActividades, ActividadResponse } from '../api/actividades';
+import { getAsignaciones, AsignacionResponse } from '../api/asignaciones';
 
 const Asistencias: React.FC = () => {
   const { user } = useAuth();
-  const [asistencias] = useState<Asistencia[]>(mockAsistencias);
   const [searchTerm, setSearchTerm] = useState('');
   const [actividadFilter, setActividadFilter] = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
-  const [selectedAsistencia, setSelectedAsistencia] = useState<Asistencia | null>(null);
+  const [selectedAsistencia, setSelectedAsistencia] = useState<AsistenciaResponse | null>(null);
+  const [asistencias, setAsistencias] = useState<AsistenciaResponse[]>([]);
+  const [actividades, setActividades] = useState<ActividadResponse[]>([]);
+  const [asignaciones, setAsignaciones] = useState<AsignacionResponse[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleOpenModal = (asistencia: Asistencia) => {
+  // useEffect para cargar datos
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        setLoading(true);
+        const [asistenciasData, actividadesData, asignacionesData] = await Promise.all([
+          getAsistencias(),
+          getActividades(),
+          getAsignaciones()
+        ]);
+        
+        setAsistencias(asistenciasData);
+        setAsignaciones(asignacionesData);
+
+        // Filtrar actividades: sólo las que el usuario tenga asignadas como PROFESOR/A o AYUDANTE
+        const dniUser = user?.personaDni;
+        let actividadesFiltradas = actividadesData;
+        if (dniUser) {
+          const misAsignaciones = asignacionesData.filter(a => 
+            a.dni === dniUser && ['profesor/a', 'ayudante'].includes(a.role.toLowerCase())
+          );
+          const idsPermitidos = new Set(misAsignaciones.map(a => a.activity_id));
+          actividadesFiltradas = actividadesData.filter(act => idsPermitidos.has(act.id));
+        }
+        setActividades(actividadesFiltradas);
+      } catch (error) {
+        console.error('Error al cargar datos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarDatos();
+  }, []);
+
+  const handleOpenModal = (asistencia: AsistenciaResponse) => {
     setSelectedAsistencia(asistencia);
-    // Prevenir scroll del body
     document.body.classList.add('modal-open');
   };
 
   const handleCloseModal = () => {
     setSelectedAsistencia(null);
-    // Restaurar scroll del body
     document.body.classList.remove('modal-open');
+  };
+
+  const getPersonaFromAsignacion = (dni: string) => {
+    const asignacion = asignaciones.find(a => a.dni === dni);
+    return asignacion ? { name: asignacion.person, dni } : null;
+  };
+
+  const getActividadById = (assignationId: number) => {
+    // Buscar la asignación para obtener el activity_id
+    const asignacion = asignaciones.find(a => a.id === assignationId);
+    if (!asignacion) return null;
+    
+    return actividades.find(a => a.id === asignacion.activity_id);
+  };
+
+  const getEstadoFromStatus = (status: number): { presente: boolean, justificada: boolean } => {
+    switch (status) {
+      case 1: return { presente: true, justificada: false };
+      case 2: return { presente: false, justificada: true };
+      default: return { presente: false, justificada: false };
+    }
   };
 
   const filteredAsistencias = useMemo(() => {
     return asistencias.filter(asistencia => {
-      const persona = mockPersonas.find(p => p.dni === asistencia.personaDni);
-      const actividad = mockActividades.find(a => a.id === asistencia.actividadId);
-      
+      const persona = getPersonaFromAsignacion(asistencia.person_dni);
+      const actividad = getActividadById(asistencia.assignation_id);
+      const estado = getEstadoFromStatus(asistencia.status);
+
       const matchesSearch = 
         persona?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        persona?.lastname.toLowerCase().includes(searchTerm.toLowerCase()) ||
         persona?.dni.includes(searchTerm) ||
-        actividad?.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+        asistencia.person_dni.includes(searchTerm) ||
+        actividad?.name.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesActividad = actividadFilter === '' || asistencia.actividadId === actividadFilter;
+      const matchesActividad = actividadFilter === '' || actividad?.id === parseInt(actividadFilter);
       
       const matchesEstado = estadoFilter === '' || 
-        (estadoFilter === 'presente' && asistencia.presente) ||
-        (estadoFilter === 'ausente' && !asistencia.presente && !asistencia.justificada) ||
-        (estadoFilter === 'justificada' && !asistencia.presente && asistencia.justificada);
+        (estadoFilter === 'presente' && estado.presente) ||
+        (estadoFilter === 'ausente' && !estado.presente && !estado.justificada) ||
+        (estadoFilter === 'justificada' && !estado.presente && estado.justificada);
       
-      const matchesFechaDesde = fechaDesde === '' || asistencia.fecha >= fechaDesde;
-      const matchesFechaHasta = fechaHasta === '' || asistencia.fecha <= fechaHasta;
+      const matchesFechaDesde = fechaDesde === '' || asistencia.day >= fechaDesde;
+      const matchesFechaHasta = fechaHasta === '' || asistencia.day <= fechaHasta;
       
       // Si es coach, solo ver sus asistencias
       if (user?.persona.roles.includes('coach') && !user?.persona.roles.includes('superadmin')) {
-        const matchesCoach = asistencia.coach === user.personaDni;
+        const matchesCoach = asistencia.supervisor_dni === user.personaDni;
         return matchesSearch && matchesActividad && matchesEstado && matchesFechaDesde && matchesFechaHasta && matchesCoach;
       }
       
       return matchesSearch && matchesActividad && matchesEstado && matchesFechaDesde && matchesFechaHasta;
     });
-  }, [asistencias, searchTerm, actividadFilter, estadoFilter, fechaDesde, fechaHasta, user]);
+  }, [asistencias, searchTerm, actividadFilter, estadoFilter, fechaDesde, fechaHasta, user, asignaciones, actividades]);
 
-  const getEstadoColor = (asistencia: Asistencia) => {
-    if (asistencia.presente) return 'bg-emerald-100 text-emerald-800';
-    if (asistencia.justificada) return 'bg-yellow-100 text-yellow-800';
+  const getEstadoColor = (asistencia: AsistenciaResponse) => {
+    const estado = getEstadoFromStatus(asistencia.status);
+    if (estado.presente) return 'bg-emerald-100 text-emerald-800';
+    if (estado.justificada) return 'bg-yellow-100 text-yellow-800';
     return 'bg-red-100 text-red-800';
   };
 
-  const getEstadoIcon = (asistencia: Asistencia) => {
-    if (asistencia.presente) return <CheckCircle size={16} className="text-emerald-600" />;
-    if (asistencia.justificada) return <AlertCircle size={16} className="text-yellow-600" />;
+  const getEstadoIcon = (asistencia: AsistenciaResponse) => {
+    const estado = getEstadoFromStatus(asistencia.status);
+    if (estado.presente) return <CheckCircle size={16} className="text-emerald-600" />;
+    if (estado.justificada) return <AlertCircle size={16} className="text-yellow-600" />;
     return <XCircle size={16} className="text-red-600" />;
   };
 
-  const getEstadoText = (asistencia: Asistencia) => {
-    if (asistencia.presente) return 'Presente';
-    if (asistencia.justificada) return 'Justificada';
+  const getEstadoText = (asistencia: AsistenciaResponse) => {
+    const estado = getEstadoFromStatus(asistencia.status);
+    if (estado.presente) return 'Presente';
+    if (estado.justificada) return 'Justificada';
     return 'Ausente';
   };
 
-  const estadisticas = {
-    total: filteredAsistencias.length,
-    presentes: filteredAsistencias.filter(a => a.presente).length,
-    ausentes: filteredAsistencias.filter(a => !a.presente && !a.justificada).length,
-    justificadas: filteredAsistencias.filter(a => !a.presente && a.justificada).length
-  };
+  const estadisticas = useMemo(() => {
+    const estadosCalculados = filteredAsistencias.map(a => getEstadoFromStatus(a.status));
+    
+    return {
+      total: filteredAsistencias.length,
+      presentes: estadosCalculados.filter(e => e.presente).length,
+      ausentes: estadosCalculados.filter(e => !e.presente && !e.justificada).length,
+      justificadas: estadosCalculados.filter(e => !e.presente && e.justificada).length
+    };
+  }, [filteredAsistencias]);
 
   const porcentajeAsistencia = estadisticas.total > 0 
     ? Math.round((estadisticas.presentes / estadisticas.total) * 100)
     : 0;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando asistencias...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 space-y-6">
@@ -148,7 +225,6 @@ const Asistencias: React.FC = () => {
       {/* Filtros */}
       <Card>
         <div className="space-y-4">
-          {/* Búsqueda principal */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input
@@ -160,7 +236,6 @@ const Asistencias: React.FC = () => {
             />
           </div>
           
-          {/* Filtros secundarios */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
@@ -170,9 +245,9 @@ const Asistencias: React.FC = () => {
                 className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               >
                 <option value="">Todas las actividades</option>
-                {mockActividades.map(actividad => (
+                {actividades.map(actividad => (
                   <option key={actividad.id} value={actividad.id}>
-                    {actividad.nombre}
+                    {actividad.name} - {actividad.category}
                   </option>
                 ))}
               </select>
@@ -214,20 +289,19 @@ const Asistencias: React.FC = () => {
         </div>
       </Card>
 
-      {/* Lista de Asistencias - Vista Mobile First */}
+      {/* Lista de Asistencias */}
       <div className="space-y-4">
         {filteredAsistencias.map((asistencia) => {
-          const persona = mockPersonas.find(p => p.dni === asistencia.personaDni);
-          const actividad = mockActividades.find(a => a.id === asistencia.actividadId);
-          const coach = mockPersonas.find(p => p.dni === asistencia.coach);
+          const persona = getPersonaFromAsignacion(asistencia.person_dni);
+          const actividad = getActividadById(asistencia.assignation_id);
+          const coach = getPersonaFromAsignacion(asistencia.supervisor_dni);
           
           return (
             <Card key={asistencia.id} className="hover:shadow-md transition-shadow">
               <div className="space-y-3">
-                {/* Header con fecha y estado */}
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium text-gray-600">
-                    {new Date(asistencia.fecha).toLocaleDateString('es-AR')}
+                    {asistencia.day}
                   </div>
                   <div className="flex items-center space-x-2">
                     {getEstadoIcon(asistencia)}
@@ -237,18 +311,17 @@ const Asistencias: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Información de la persona */}
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-blue-700 font-bold text-sm">
-                      {persona?.name.charAt(0)}{persona?.lastname.charAt(0)}
+                      {persona?.name?.charAt(0)?.toUpperCase() || '?'}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 text-lg">
-                      {persona?.name} {persona?.lastname}
+                      {persona?.name || 'Nombre no disponible'}
                     </p>
-                    <p className="text-sm text-gray-600">DNI: {persona?.dni}</p>
+                    <p className="text-sm text-gray-600">DNI: {persona?.dni || 'N/A'}</p>
                   </div>
                   <button 
                     onClick={() => handleOpenModal(asistencia)}
@@ -258,28 +331,17 @@ const Asistencias: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Información de actividad y coach */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Actividad</p>
-                    <p className="font-medium text-gray-900">{actividad?.nombre}</p>
-                    <p className="text-sm text-gray-600">{actividad?.horario}</p>
+                    <p className="font-medium text-gray-900">{actividad?.name || 'Actividad no disponible'}</p>
+                    <p className="text-sm text-gray-600">{actividad?.category || 'Categoría no disponible'}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Coach</p>
-                    <p className="font-medium text-gray-900">{coach?.name} {coach?.lastname}</p>
+                    <p className="font-medium text-gray-900">{coach?.name || 'Coach no disponible'}</p>
                   </div>
                 </div>
-
-                {/* Observaciones si existen */}
-                {asistencia.observaciones && (
-                  <div className="pt-2 border-t border-gray-100">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Observaciones</p>
-                    <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">
-                      {asistencia.observaciones}
-                    </p>
-                  </div>
-                )}
               </div>
             </Card>
           );
@@ -296,12 +358,11 @@ const Asistencias: React.FC = () => {
         )}
       </div>
 
-      {/* Modal de Detalle - Optimizado para móvil */}
+      {/* Modal de Detalle */}
       {selectedAsistencia && (
         <div className="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-w-md mx-auto transform transition-all">
             <div className="p-6">
-              {/* Header del modal */}
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900">Detalle de Asistencia</h3>
                 <button
@@ -313,7 +374,6 @@ const Asistencias: React.FC = () => {
               </div>
               
               <div className="space-y-4">
-                {/* Estado principal */}
                 <div className="flex items-center justify-center mb-6">
                   <div className="flex items-center space-x-3">
                     {getEstadoIcon(selectedAsistencia)}
@@ -323,61 +383,45 @@ const Asistencias: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Información principal */}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                   <div>
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Fecha</label>
-                    <p className="text-gray-900 font-medium">
-                      {new Date(selectedAsistencia.fecha).toLocaleDateString('es-AR')}
-                    </p>
+                    <p className="text-gray-900 font-medium">{selectedAsistencia.day}</p>
                   </div>
                   
                   <div>
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Persona</label>
                     <p className="text-gray-900 font-medium">
-                      {mockPersonas.find(p => p.dni === selectedAsistencia.personaDni)?.name} {' '}
-                      {mockPersonas.find(p => p.dni === selectedAsistencia.personaDni)?.lastname}
+                      {getPersonaFromAsignacion(selectedAsistencia.person_dni)?.name || 'Nombre no disponible'}
                     </p>
                     <p className="text-sm text-gray-600">
-                      DNI: {mockPersonas.find(p => p.dni === selectedAsistencia.personaDni)?.dni}
+                      DNI: {selectedAsistencia.person_dni}
                     </p>
                   </div>
                   
                   <div>
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Actividad</label>
                     <p className="text-gray-900 font-medium">
-                      {mockActividades.find(a => a.id === selectedAsistencia.actividadId)?.nombre}
+                      {getActividadById(selectedAsistencia.assignation_id)?.name || 'Actividad no disponible'}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {mockActividades.find(a => a.id === selectedAsistencia.actividadId)?.horario}
+                      {getActividadById(selectedAsistencia.assignation_id)?.category || 'Categoría no disponible'}
                     </p>
                   </div>
 
                   <div>
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Coach</label>
                     <p className="text-gray-900 font-medium">
-                      {mockPersonas.find(p => p.dni === selectedAsistencia.coach)?.name} {' '}
-                      {mockPersonas.find(p => p.dni === selectedAsistencia.coach)?.lastname}
+                      {getPersonaFromAsignacion(selectedAsistencia.supervisor_dni)?.name || 'Coach no disponible'}
                     </p>
                   </div>
                 </div>
-                
-                {selectedAsistencia.observaciones && (
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 block">Observaciones</label>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-gray-900">
-                        {selectedAsistencia.observaciones}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
               
               <div className="flex justify-end mt-8">
                 <Button 
                   variant="secondary" 
-                  onClick={() => setSelectedAsistencia(null)}
+                  onClick={handleCloseModal}
                   className="w-full sm:w-auto"
                 >
                   Cerrar

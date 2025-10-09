@@ -10,6 +10,7 @@ import {
   X,
   Shield,
   Calendar,
+  Star,
   BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -20,6 +21,16 @@ const Sidebar: React.FC = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, logout, hasPermission } = useAuth();
   const location = useLocation();
+
+  // Custom icon: Star inside a circle to emulate a "CircleStar" icon
+  const CircleStarIcon: React.FC<{ size?: number; className?: string }> = ({ size = 20, className }) => (
+    <div
+      className={`rounded-full border border-current flex items-center justify-center ${className ?? ''}`}
+      style={{ width: size, height: size }}
+    >
+      <Star size={Math.max(12, Math.round(size * 0.6))} />
+    </div>
+  );
 
   const menuItems = [
     {
@@ -39,6 +50,12 @@ const Sidebar: React.FC = () => {
       icon: Shield,
       path: '/usuarios',
       permission: PERMISOS.VER_USUARIOS
+    },
+    {
+      title:'Actividades',
+      icon: CircleStarIcon,
+      path: '/actividades',
+      permission: PERMISOS.VER_ASISTENCIAS
     },
     {
       title: 'Asistencias',

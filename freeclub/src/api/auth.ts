@@ -97,14 +97,29 @@ export async function loginApi(username: string, password: string): Promise<{ su
 // Función para hacer requests autenticadas
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem('authToken');
-  
-  const headers = {
-    ...options.headers,
-    ...(token && { 'Authorization': `Bearer ${token}` })
-  };
 
-  return fetch(url, {
+  // Normalizar headers para evitar problemas al hacer spread de Headers
+  const baseHeaders = new Headers(options.headers as HeadersInit | undefined);
+  if (token) {
+    baseHeaders.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(url, {
     ...options,
-    headers
+    headers: baseHeaders,
+    mode: options.mode ?? 'cors'
   });
+
+  // Si el token expira o falta, propagamos un error claro
+  if (response.status === 401) {
+    // Opcional: limpiar sesión para forzar re-login
+    // localStorage.removeItem('authToken');
+    // localStorage.removeItem('currentUser');
+    const err = new Error('UNAUTHORIZED');
+    // @ts-expect-error attach status for consumers
+    err.status = 401;
+    throw err;
+  }
+
+  return response;
 }

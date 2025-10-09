@@ -1,6 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle, XCircle, AlertTriangle, Users2 } from 'lucide-react';
-import { mockPersonas, mockActividades } from '../data/mockData';
+import { getActividades, ActividadResponse } from '../api/actividades';
+import { getAlumnosDeActividad, AsignacionResponse, getAsignaciones } from '../api/asignaciones';
+import { createAsistencia, AsistenciaBackend } from '../api/asistencias';
+import { useAuth } from '../context/AuthContext';
 
 interface AsistenciaTemp {
   personaDni: string;
@@ -12,53 +15,136 @@ const TomarAsistencia: React.FC = () => {
   const [asistenciasTemp, setAsistenciasTemp] = useState<AsistenciaTemp[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<string>('');
+  const [actividades, setActividades] = useState<ActividadResponse[]>([]);
+  const [asignacionesActividad, setAsignacionesActividad] = useState<AsignacionResponse[]>([]);
+  const [loadingActividades, setLoadingActividades] = useState(true);
+  const [loadingAlumnos, setLoadingAlumnos] = useState(false);
+  
+  const { user } = useAuth();
 
-  // Todas las actividades disponibles - simplificado para campo
-  const actividadesDisponibles = useMemo(() => {
-    return mockActividades;
-  }, []);
+  useEffect(() => {
+    const cargarActividades = async () => {
+      try {
+        setLoadingActividades(true);
+        const [actividadesData, asignaciones] = await Promise.all([
+          getActividades(),
+          getAsignaciones()
+        ]);
 
-  // Obtener alumnos de la actividad seleccionada
-  const alumnosActividad = useMemo(() => {
-    if (!actividadSeleccionada) return [];
-    
-    return mockPersonas.filter(p => 
-      p.roles.includes('alumno')
-    );
+        // Si el usuario tiene permiso de TOMAR_ASISTENCIA, debe ver solo las actividades donde esté asignado como PROFESOR/A o AYUDANTE
+        const dniUser = user?.personaDni; // en AuthContext guardamos personaDni
+        let actividadesFiltradas = actividadesData;
+        if (dniUser) {
+          const misAsignaciones = asignaciones.filter(a => 
+            a.dni === dniUser && ['profesor/a', 'ayudante'].includes(a.role.toLowerCase())
+          );
+          const idsPermitidos = new Set(misAsignaciones.map(a => a.activity_id));
+          actividadesFiltradas = actividadesData.filter(act => idsPermitidos.has(act.id));
+        }
+
+        setActividades(actividadesFiltradas);
+      } catch (error) {
+        console.error('Error al cargar actividades:', error);
+        setMensaje('Error al cargar actividades');
+      } finally {
+        setLoadingActividades(false);
+      }
+    };
+
+    cargarActividades();
+  }, [user]);
+
+  // useEffect para cargar alumnos de la actividad
+  useEffect(() => {
+    const cargarAlumnos = async () => {
+      if (!actividadSeleccionada) {
+        setAsignacionesActividad([]);
+        setAsistenciasTemp([]);
+        return;
+      }
+
+      try {
+        setLoadingAlumnos(true);
+        const alumnosData = await getAlumnosDeActividad(parseInt(actividadSeleccionada));
+        setAsignacionesActividad(alumnosData);
+        
+        // Inicializar asistencias temp
+        const nuevasAsistencias = alumnosData.map(asignacion => ({
+          personaDni: asignacion.dni,
+          estado: 'ausente' as const
+        }));
+        setAsistenciasTemp(nuevasAsistencias);
+      } catch (error) {
+        console.error('Error al cargar alumnos:', error);
+        setMensaje('❌ Error al cargar alumnos de la actividad');
+      } finally {
+        setLoadingAlumnos(false);
+      }
+    };
+
+    cargarAlumnos();
   }, [actividadSeleccionada]);
 
-  // Inicializar asistencias cuando se selecciona una actividad
-  React.useEffect(() => {
-    if (actividadSeleccionada && alumnosActividad.length > 0) {
-      const nuevasAsistencias = alumnosActividad.map(alumno => ({
-        personaDni: alumno.dni,
-        estado: 'ausente' as const
-      }));
-      setAsistenciasTemp(nuevasAsistencias);
-    }
-  }, [actividadSeleccionada, alumnosActividad]);
-
-  const cambiarEstado = (personaDni: string, estado: 'presente' | 'ausente' | 'justificada') => {
-    setAsistenciasTemp(prev => prev.map(a => 
-      a.personaDni === personaDni ? { ...a, estado } : a
-    ));
+  const cambiarEstado = (personaDni: string, nuevoEstado: 'presente' | 'ausente' | 'justificada') => {
+    setAsistenciasTemp(prev => 
+      prev.map(asistencia => 
+        asistencia.personaDni === personaDni 
+          ? { ...asistencia, estado: nuevoEstado }
+          : asistencia
+      )
+    );
   };
 
-
-
   const guardarAsistencias = async () => {
-    if (!actividadSeleccionada || asistenciasTemp.length === 0) return;
+    if (!actividadSeleccionada || asistenciasTemp.length === 0 || !user) return;
 
     setGuardando(true);
     try {
-      // Simular guardado en la API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const fechaHoy = new Date().toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+
+      // Crear asistencias para cada alumno
+      const promesasAsistencias = asistenciasTemp.map(async (asistenciaTemp) => {
+        // Encontrar la asignación correspondiente
+        const asignacion = asignacionesActividad.find(a => a.dni === asistenciaTemp.personaDni);
+        if (!asignacion) {
+          throw new Error(`No se encontró asignación para DNI: ${asistenciaTemp.personaDni}`);
+        }
+
+        // Mapear estado a número
+        const statusMap = {
+          'ausente': 0,
+          'presente': 1,
+          'justificada': 2
+        };
+
+        const asistenciaData: AsistenciaBackend = {
+          person_dni: asistenciaTemp.personaDni,
+          supervisor_dni: user.personaDni, // El coach que toma asistencia
+          assignation_id: asignacion.id,
+          user_id: user.id,
+          status: statusMap[asistenciaTemp.estado],
+          day: fechaHoy
+        };
+
+        return createAsistencia(asistenciaData);
+      });
+
+      await Promise.all(promesasAsistencias);
+      
       setMensaje('✅ Asistencias guardadas correctamente');
-      // Limpiar mensaje después de 3 segundos
+      // Limpiar formulario
+      setActividadSeleccionada('');
+      setAsistenciasTemp([]);
+      
       setTimeout(() => setMensaje(''), 3000);
-    } catch (error) {
-      setMensaje('❌ Error al guardar las asistencias');
-      setTimeout(() => setMensaje(''), 3000);
+    } catch (error: any) {
+      console.error('Error al guardar asistencias:', error);
+      setMensaje(`❌ Error al guardar: ${error.message}`);
+      setTimeout(() => setMensaje(''), 5000);
     } finally {
       setGuardando(false);
     }
@@ -82,12 +168,15 @@ const TomarAsistencia: React.FC = () => {
         <select
           value={actividadSeleccionada}
           onChange={(e) => setActividadSeleccionada(e.target.value)}
+          disabled={loadingActividades}
           className="w-full p-3 sm:p-4 text-base sm:text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="">Elegir actividad...</option>
-          {actividadesDisponibles.map(actividad => (
-            <option key={actividad.id} value={actividad.id}>
-              {actividad.nombre} - {actividad.horario}
+          <option value="">
+            {loadingActividades ? 'Cargando actividades...' : 'Elegir actividad...'}
+          </option>
+          {actividades.map(actividad => (
+            <option key={actividad.id} value={actividad.id.toString()}>
+              {actividad.name} - {actividad.category}
             </option>
           ))}
         </select>
@@ -96,70 +185,76 @@ const TomarAsistencia: React.FC = () => {
       {/* Lista de asistencia - Solo si hay actividad seleccionada */}
       {actividadSeleccionada && asistenciasTemp.length > 0 && (
         <>
-
           {/* Lista de alumnos */}
           <div className="space-y-3 sm:space-y-4 mb-20 sm:mb-24">
-            {asistenciasTemp.map((asistencia) => {
-              const persona = mockPersonas.find(p => p.dni === asistencia.personaDni);
-              if (!persona) return null;
+            {loadingAlumnos ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto"></div>
+                <p className="mt-2 text-gray-600">Cargando alumnos...</p>
+              </div>
+            ) : (
+              asistenciasTemp.map((asistencia) => {
+                const asignacion = asignacionesActividad.find(a => a.dni === asistencia.personaDni);
+                if (!asignacion) return null;
+                
+                return (
+                  <div key={asignacion.dni} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-200">
+                    {/* Nombre del alumno */}
+                    <div className="mb-3 sm:mb-4 text-center">
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+                        {asignacion.person}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-500">DNI: {asignacion.dni}</p>
+                    </div>
 
-              return (
-                <div key={persona.dni} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-200">
-                  {/* Nombre del alumno  */}
-                  <div className="mb-3 sm:mb-4 text-center">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-                      {persona.name} {persona.lastname}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-500">DNI: {persona.dni}</p>
+                    {/* Botones de estado */}
+                    <div className="flex gap-1 sm:gap-2">
+                      <button
+                        onClick={() => cambiarEstado(asignacion.dni, 'presente')}
+                        className={`flex-1 py-2 sm:py-3 px-1 sm:px-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${
+                          asistencia.estado === 'presente'
+                            ? 'bg-green-600 text-white shadow-md'
+                            : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>PRESENTE</span>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => cambiarEstado(asignacion.dni, 'ausente')}
+                        className={`flex-1 py-2 sm:py-3 px-1 sm:px-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${
+                          asistencia.estado === 'ausente'
+                            ? 'bg-red-600 text-white shadow-md'
+                            : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>AUSENTE</span>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => cambiarEstado(asignacion.dni, 'justificada')}
+                        className={`flex-1 py-2 sm:py-3 px-1 sm:px-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${
+                          asistencia.estado === 'justificada'
+                            ? 'bg-yellow-600 text-white shadow-md'
+                            : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>JUSTIFICADA</span>
+                        </div>
+                      </button>
+                    </div>
                   </div>
-
-                  {/* Botones de estado */}
-                  <div className="flex gap-1 sm:gap-2">
-                    <button
-                      onClick={() => cambiarEstado(persona.dni, 'presente')}
-                      className={`flex-1 py-2 sm:py-3 px-1 sm:px-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${
-                        asistencia.estado === 'presente'
-                          ? 'bg-green-600 text-white shadow-md'
-                          : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center space-y-1">
-                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>PRESENTE</span>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => cambiarEstado(persona.dni, 'ausente')}
-                      className={`flex-1 py-2 sm:py-3 px-1 sm:px-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${
-                        asistencia.estado === 'ausente'
-                          ? 'bg-red-600 text-white shadow-md'
-                          : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center space-y-1">
-                        <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>AUSENTE</span>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => cambiarEstado(persona.dni, 'justificada')}
-                      className={`flex-1 py-2 sm:py-3 px-1 sm:px-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${
-                        asistencia.estado === 'justificada'
-                          ? 'bg-yellow-600 text-white shadow-md'
-                          : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center space-y-1">
-                        <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>JUSTIFICADA</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           {/* Botón guardar - FIXED al fondo */}

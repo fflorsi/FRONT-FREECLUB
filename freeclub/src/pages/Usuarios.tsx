@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, Eye, Shield, UserCheck, UserX, Key, EyeOff } from 'lucide-react';
+import { Edit, Eye, Shield, Key, EyeOff } from 'lucide-react';
 import Card from '../components/Common/Card';
 import Button from '../components/Common/Button';
 //import { mockUsuarios, mockPersonas } from '../data/mockData';
@@ -16,16 +16,31 @@ const Usuarios: React.FC = () => {
   //const [usuarios, setUsuarios] = useState<Usuario[]>(mockUsuarios);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [searchTerm, _setSearchTerm] = useState('');
+  const [statusFilter, _setStatusFilter] = useState('');
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'view' | 'edit' | 'permissions'>('view');
   const [showEditPassword, setShowEditPassword] = useState(false); // Nuevo estado
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-      fetchUsuarios().then(setUsuarios).catch(console.error);
-      fetchPersonas().then(setPersonas).catch(console.error);
+      const cargar = async () => {
+        try {
+          setLoading(true);
+          const [usuariosData, personasData] = await Promise.all([
+            fetchUsuarios(),
+            fetchPersonas()
+          ]);
+          setUsuarios(usuariosData);
+          setPersonas(personasData);
+        } catch (e) {
+          console.error('Error cargando usuarios/personas:', e);
+        } finally {
+          setLoading(false);
+        }
+      };
+      cargar();
   }, []);
 
 // Mapeo manual de nombre de permiso a ID numérico (ajusta los números según tu backend)
@@ -67,13 +82,13 @@ const filteredUsuarios = useMemo(() => {
   });
 }, [usuarios, personas, searchTerm, statusFilter]);
   
-const toggleUsuarioStatus = (nombreUsuario: string) => {
-    setUsuarios(prev => prev.map(u => 
-      u.username === nombreUsuario 
-        ? { ...u, activo: !u.activo }
-        : u
-    ));
-  };
+// const toggleUsuarioStatus = (nombreUsuario: string) => {
+//     setUsuarios(prev => prev.map(u => 
+//       u.username === nombreUsuario 
+//         ? { ...u, activo: !u.activo }
+//         : u
+//     ));
+//   };
 
   const openModal = (usuario: Usuario, type: 'view' | 'edit' | 'permissions') => {
     setSelectedUsuario(usuario);
@@ -106,13 +121,21 @@ const toggleUsuarioStatus = (nombreUsuario: string) => {
     return names[permission] || permission;
   };
 
-  const estadisticas = {
-    total: usuarios.length,
-    activos: usuarios.filter(u => u.activo).length,
-    inactivos: usuarios.filter(u => !u.activo).length,
-    admins: usuarios.filter(u => (u.permissions ?? []).includes(PERMISOS.ADMINISTRAR_SISTEMA)).length  };
+  // const estadisticas = {
+  //   total: usuarios.length,
+  //   activos: usuarios.filter(u => u.activo).length,
+  //   inactivos: usuarios.filter(u => !u.activo).length,
+  //   admins: usuarios.filter(u => (u.permissions ?? []).includes(PERMISOS.ADMINISTRAR_SISTEMA)).length  };
 
 return (
+  loading ? (
+    <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Cargando usuarios...</p>
+      </div>
+    </div>
+  ) : (
   <div className="space-y-6">
     {/* Estadísticas y filtros */}
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -482,6 +505,7 @@ return (
       </div>
     )}
   </div>
+  )
 );
 }
 export default Usuarios;
