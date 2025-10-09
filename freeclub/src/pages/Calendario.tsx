@@ -1,31 +1,77 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Users, MapPin, Clock, Filter, Settings } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Users, MapPin, Clock, Filter } from 'lucide-react';
 import Card from '../components/Common/Card';
 import Button from '../components/Common/Button';
 import EventoForm from '../forms/EventoForm';
-import { mockActividades, feriadosArgentinos2024, mockPersonas, mockAsistencias } from '../data/mockData';
+import { feriadosArgentinos2024, mockAsistencias } from '../data/mockData';
 import { EventoCalendario } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { getActividades, ActividadResponse } from '../api/actividades';
+import { getAsignaciones, AsignacionResponse } from '../api/asignaciones';
+import { getPersonas, PersonaResponse } from '../api/personas';
 
 const Calendario: React.FC = () => {
   const { user } = useAuth();
   const [fechaActual, setFechaActual] = useState(new Date());
   const [vistaActual, setVistaActual] = useState<'mes' | 'semana'>('mes');
-  const [filtroActividad, setFiltroActividad] = useState('');
+  const [filtroActividad, setFiltroActividad] = useState<number | ''>('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [eventoSeleccionado, setEventoSeleccionado] = useState<EventoCalendario | null>(null);
   const [showEventoForm, setShowEventoForm] = useState(false);
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string>('');
   const [showFiltros, setShowFiltros] = useState(false);
   const [eventos, setEventos] = useState<EventoCalendario[]>([]);
+  const [actividades, setActividades] = useState<ActividadResponse[]>([]);
+  const [asignaciones, setAsignaciones] = useState<AsignacionResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [personas, setPersonas] = useState<PersonaResponse[]>([]);
 
-  // Generar eventos del calendario
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        setLoading(true);
+        const [acts, asigs, pers] = await Promise.all([
+          getActividades(),
+          getAsignaciones(),
+          getPersonas(),
+        ]);
+        setActividades(acts);
+        setAsignaciones(asigs);
+        setPersonas(pers);
+      } catch (e) {
+        console.error('Error cargando calendario', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargar();
+  }, []);
+
+  // Utilidades
+  const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  const diaAIndex: Record<string, number> = {
+    domingo: 0,
+    lunes: 1,
+    martes: 2,
+    miercoles: 3,
+    jueves: 4,
+    viernes: 5,
+    sabado: 6,
+  };
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // Generar eventos del calendario con datos reales
   const eventosGenerados = useMemo(() => {
-    const eventosGenerados: EventoCalendario[] = [...eventos];
-    
-    // Agregar feriados
+    const out: EventoCalendario[] = [...eventos];
+
+    // Feriados
     feriadosArgentinos2024.forEach(feriado => {
-      eventosGenerados.push({
+      out.push({
         id: `feriado-${feriado.fecha}`,
         titulo: feriado.nombre,
         fecha: feriado.fecha,
@@ -35,54 +81,67 @@ const Calendario: React.FC = () => {
       });
     });
 
-    // Generar entrenamientos para el mes actual
-    const inicioMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1);
-    const finMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 0);
-    
-    for (let fecha = new Date(inicioMes); fecha <= finMes; fecha.setDate(fecha.getDate() + 1)) {
-      const diaSemana = fecha.toLocaleDateString('es-AR', { weekday: 'long' }).toLowerCase();
-      
-      mockActividades.forEach(actividad => {
-        if (actividad.diasSemana.includes(diaSemana) && actividad.activa) {
-          // Para alumnos, solo mostrar sus actividades
-          if (user?.persona.roles.includes('alumno') && !user?.persona.roles.includes('superadmin')) {
-            // En un sistema real, esto vendría de una tabla de inscripciones
-            // Por ahora, simulamos que todos los alumnos están en todas las actividades
-          }
-          
-          // Para coaches, solo mostrar sus actividades
-          if (user?.persona.roles.includes('coach') && 
-              !user?.persona.roles.includes('superadmin') && 
-              actividad.coachDni !== user.personaDni) {
-            return;
-          }
-
-          eventosGenerados.push({
-            id: `entrenamiento-${actividad.id}-${fecha.toISOString().split('T')[0]}`,
-            titulo: actividad.nombre,
-            fecha: fecha.toISOString().split('T')[0],
-            tipo: 'entrenamiento',
-            descripcion: actividad.descripcion,
-            actividadId: actividad.id,
-            coachDni: actividad.coachDni,
-            horaInicio: actividad.horario.split('-')[0],
-            horaFin: actividad.horario.split('-')[1],
-            color: '#669bbc'
-          });
-        }
-      });
+    // Agrupar asignaciones por (actividad, dia, hora)
+    const grupos = new Map<string, { activity_id: number; day: string; start: string; end: string; profesorDni?: string; ayudanteDni?: string }>();
+    for (const a of asignaciones) {
+      const key = `${a.activity_id}|${a.day}|${a.start_time}|${a.end_time}`;
+      const exist = grupos.get(key);
+      const role = normalize(a.role);
+      if (!exist) {
+        grupos.set(key, {
+          activity_id: a.activity_id,
+          day: a.day,
+          start: a.start_time,
+          end: a.end_time,
+          profesorDni: role.includes('profesor') ? a.dni : undefined,
+          ayudanteDni: role.includes('ayudante') ? a.dni : undefined,
+        });
+      } else {
+        if (!exist.profesorDni && role.includes('profesor')) exist.profesorDni = a.dni;
+        if (!exist.ayudanteDni && role.includes('ayudante')) exist.ayudanteDni = a.dni;
+      }
     }
 
-    return eventosGenerados;
-  }, [fechaActual, user, eventos]);
+    const inicioMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1);
+    const finMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 0);
+
+    grupos.forEach(({ activity_id, day, start, end, profesorDni, ayudanteDni }) => {
+      const actividad = actividades.find(act => act.id === activity_id);
+      if (!actividad) return;
+      const idx = diaAIndex[normalize(day)];
+      if (idx === undefined) return;
+
+      // Recorrer días del mes y crear eventos para cada coincidencia de día de semana
+      const cursor = new Date(inicioMes);
+      while (cursor <= finMes) {
+        if (cursor.getDay() === idx) {
+          out.push({
+            id: `act-${activity_id}-${day}-${start}-${formatDate(cursor)}`,
+            titulo: actividad.name,
+            fecha: formatDate(cursor),
+            tipo: 'entrenamiento',
+            descripcion: actividad.category,
+            actividadId: String(activity_id),
+            horaInicio: start.slice(0,5),
+            horaFin: end.slice(0,5),
+            coachDni: profesorDni || ayudanteDni,
+            color: '#669bbc',
+          });
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    });
+
+    return out;
+  }, [fechaActual, actividades, asignaciones, eventos]);
 
   // Filtrar eventos
   const eventosFiltrados = useMemo(() => {
     let filtrados = eventosGenerados;
 
-    if (filtroActividad) {
+    if (filtroActividad !== '') {
       filtrados = filtrados.filter(evento => 
-        evento.actividadId === filtroActividad || evento.tipo === 'feriado'
+        (evento.actividadId === String(filtroActividad)) || evento.tipo === 'feriado'
       );
     }
 
@@ -239,13 +298,13 @@ const Calendario: React.FC = () => {
               </label>
               <select
                 value={filtroActividad}
-                onChange={(e) => setFiltroActividad(e.target.value)}
+                onChange={(e) => setFiltroActividad(e.target.value ? Number(e.target.value) : '')}
                 className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">Todas las actividades</option>
-                {mockActividades.map(actividad => (
-                  <option key={actividad.id} value={actividad.id}>
-                    {actividad.nombre}
+                {actividades.map(act => (
+                  <option key={act.id} value={act.id}>
+                    {act.name} - {act.category}
                   </option>
                 ))}
               </select>
@@ -336,6 +395,9 @@ const Calendario: React.FC = () => {
 
       {/* Vista del Calendario */}
       <Card className="overflow-hidden">
+        {loading && (
+          <div className="p-4 text-center text-gray-600">Cargando calendario...</div>
+        )}
         {/* Encabezados de días */}
         <div className="grid grid-cols-7 border-b border-dark-200">
           {diasSemana.map(dia => (
@@ -384,9 +446,22 @@ const Calendario: React.FC = () => {
                       <div className="truncate font-medium">
                         {evento.titulo}
                       </div>
+                      {evento.descripcion && (
+                        <div className="truncate opacity-75">
+                          {evento.descripcion}
+                        </div>
+                      )}
                       {evento.horaInicio && evento.horaFin && (
                         <div className="truncate opacity-75">
                           {evento.horaInicio}-{evento.horaFin}
+                        </div>
+                      )}
+                      {evento.coachDni && (
+                        <div className="truncate opacity-75">
+                          {(() => {
+                            const p = personas.find(pp => pp.dni === evento.coachDni);
+                            return p ? `Instructor: ${p.name} ${p.lastname}` : undefined;
+                          })()}
                         </div>
                       )}
                     </div>
@@ -512,8 +587,8 @@ const Calendario: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <Users size={16} className="text-dark-500" />
                     <span className="text-dark-900">
-                      Coach: {mockPersonas.find(p => p.dni === eventoSeleccionado.coachDni)?.nombre} {' '}
-                      {mockPersonas.find(p => p.dni === eventoSeleccionado.coachDni)?.apellido}
+                      Coach: {personas.find((p) => p.dni === eventoSeleccionado.coachDni)?.name} {' '}
+                      {personas.find((p) => p.dni === eventoSeleccionado.coachDni)?.lastname}
                     </span>
                   </div>
                 )}
