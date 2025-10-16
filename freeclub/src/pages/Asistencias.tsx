@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Calendar, User, CheckCircle, XCircle, AlertCircle, Download, Eye } from 'lucide-react';
+import { Search, Filter, Calendar, User, CheckCircle, XCircle, AlertCircle, Eye } from 'lucide-react';
 import Card from '../components/Common/Card';
 import Button from '../components/Common/Button';
 import { useAuth } from '../context/AuthContext';
@@ -34,17 +34,25 @@ const Asistencias: React.FC = () => {
         setAsistencias(asistenciasData);
         setAsignaciones(asignacionesData);
 
-        // Filtrar actividades: sólo las que el usuario tenga asignadas como PROFESOR/A o AYUDANTE
+        // Filtrar actividades según rol: Administrador ve todas; PROFESOR/A sólo las asignadas; otros ninguna
+        const roles = user?.persona?.roles?.map(r => r.toLowerCase()) || [];
+        const isAdmin = roles.includes('administrador');
+        const isDocente = roles.includes('profesor/a') || roles.includes('ayudante');
         const dniUser = user?.personaDni;
-        let actividadesFiltradas = actividadesData;
-        if (dniUser) {
-          const misAsignaciones = asignacionesData.filter(a => 
-            a.dni === dniUser && ['profesor/a', 'ayudante'].includes(a.role.toLowerCase())
+
+        if (isAdmin) {
+          setActividades(actividadesData);
+        } else if (isDocente && dniUser) {
+          const rolesDocentes = ['profesor/a', 'ayudante'];
+          const misAsignacionesDocente = asignacionesData.filter(a => 
+            a.dni === dniUser && rolesDocentes.includes(a.role.toLowerCase())
           );
-          const idsPermitidos = new Set(misAsignaciones.map(a => a.activity_id));
-          actividadesFiltradas = actividadesData.filter(act => idsPermitidos.has(act.id));
+          const idsPermitidos = new Set(misAsignacionesDocente.map(a => a.activity_id));
+          const actividadesFiltradas = actividadesData.filter(act => idsPermitidos.has(act.id));
+          setActividades(actividadesFiltradas);
+        } else {
+          setActividades([]);
         }
-        setActividades(actividadesFiltradas);
       } catch (error) {
         console.error('Error al cargar datos:', error);
       } finally {
@@ -53,7 +61,7 @@ const Asistencias: React.FC = () => {
     };
 
     cargarDatos();
-  }, []);
+  }, [user]);
 
   const handleOpenModal = (asistencia: AsistenciaResponse) => {
     setSelectedAsistencia(asistencia);
@@ -87,6 +95,19 @@ const Asistencias: React.FC = () => {
   };
 
   const filteredAsistencias = useMemo(() => {
+    // Normalizamos roles del usuario y precomputamos actividades permitidas si es PROFESOR/A
+    const roles = user?.persona?.roles?.map(r => r.toLowerCase()) || [];
+    const isAdmin = roles.includes('administrador');
+    const isDocente = roles.includes('profesor/a') || roles.includes('ayudante');
+    const dniUser = user?.personaDni;
+    const actividadesPermitidasDocente = new Set<number>();
+    if (!isAdmin && isDocente && dniUser) {
+      const rolesDocentes = ['profesor/a', 'ayudante'];
+      asignaciones
+        .filter(a => a.dni === dniUser && rolesDocentes.includes(a.role.toLowerCase()))
+        .forEach(a => actividadesPermitidasDocente.add(a.activity_id));
+    }
+
     return asistencias.filter(asistencia => {
       const persona = getPersonaFromAsignacion(asistencia.person_dni);
       const actividad = getActividadById(asistencia.assignation_id);
@@ -107,14 +128,26 @@ const Asistencias: React.FC = () => {
       
       const matchesFechaDesde = fechaDesde === '' || asistencia.day >= fechaDesde;
       const matchesFechaHasta = fechaHasta === '' || asistencia.day <= fechaHasta;
-      
-      // Si es coach, solo ver sus asistencias
-      if (user?.persona.roles.includes('coach') && !user?.persona.roles.includes('superadmin')) {
-        const matchesCoach = asistencia.supervisor_dni === user.personaDni;
-        return matchesSearch && matchesActividad && matchesEstado && matchesFechaDesde && matchesFechaHasta && matchesCoach;
+
+      // Si no hay actividad asociada a la asistencia, ocultar para usuarios no administradores
+      if (!isAdmin && !actividad) {
+        return false;
       }
-      
-      return matchesSearch && matchesActividad && matchesEstado && matchesFechaDesde && matchesFechaHasta;
+
+      // Visibilidad según rol
+      if (isAdmin) {
+        return matchesSearch && matchesActividad && matchesEstado && matchesFechaDesde && matchesFechaHasta;
+      }
+
+      if (isDocente) {
+        const actividadId = actividad?.id;
+        const permitido = actividadId !== undefined && actividadesPermitidasDocente.has(actividadId);
+        if (!permitido) return false;
+        return matchesSearch && matchesActividad && matchesEstado && matchesFechaDesde && matchesFechaHasta;
+      }
+
+      // Otros roles: no ver asistencias
+      return false;
     });
   }, [asistencias, searchTerm, actividadFilter, estadoFilter, fechaDesde, fechaHasta, user, asignaciones, actividades]);
 
@@ -172,11 +205,7 @@ const Asistencias: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Asistencias</h1>
           <p className="text-gray-600 mt-1">Registro y seguimiento de asistencias</p>
         </div>
-        <div className="flex space-x-3">
-          <Button variant="secondary" icon={Download} size="sm" className="flex-1 sm:flex-none">
-            Exportar
-          </Button>
-        </div>
+        {/* Botón de exportación removido */}
       </div>
 
       {/* Estadísticas */}

@@ -7,7 +7,7 @@ import PersonaForm from '../forms/PersonaForm';
 import { Persona, Usuario } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { PERMISOS } from '../types';
-import { fetchPersonas, editarPersona } from '../api/personas';
+import { fetchPersonas, editarPersona, fetchPersonaPorDni } from '../api/personas';
 import { fetchUsuarios } from '../api/usuarios'
 
 
@@ -98,10 +98,19 @@ const Personas: React.FC = () => {
     setIsEditing(false);
   };
 
-  const handleEditPersona = (persona: Persona) => {
-    setSelectedPersona(persona);
-    setIsEditing(true);
-    setShowForm(true);
+  const handleEditPersona = async (persona: Persona) => {
+    try {
+      // Traer datos completos (incluye CUIT y otros opcionales que pueden no venir en el listado)
+      const personaCompleta = await fetchPersonaPorDni(persona.dni);
+      setSelectedPersona(personaCompleta);
+    } catch (e) {
+      // Si falla, al menos abrimos con lo que tenemos
+      console.warn('No se pudo cargar el detalle, se usará la persona del listado:', e);
+      setSelectedPersona(persona);
+    } finally {
+      setIsEditing(true);
+      setShowForm(true);
+    }
   };
 
 const handleDeletePersona = async (dni: string) => {

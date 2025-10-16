@@ -8,3 +8,15 @@
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
+
+/* Hide native password reveal/clear icons */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+/* Some WebKit variants */
+input[type="password"]::-webkit-textfield-decoration-container,
+input[type="password"]::-webkit-clear-button,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none;
+}

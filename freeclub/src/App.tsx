@@ -25,14 +25,23 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Si no hay usuario, forzar ruta de login
   if (!user) {
-    return <LoginForm />;
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginForm />} />
+        {/* Cualquier otra ruta redirige a /login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" />} />
+  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+  {/* Ruta de login no accesible autenticado: redirigir al dashboard */}
+  <Route path="/login" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route 
           path="/personas" 

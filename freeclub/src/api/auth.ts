@@ -2,13 +2,22 @@ import { AuthUser } from "../types";
 
 export const API_URL = "http://localhost:5000";
 
-export async function loginApi(username: string, password: string): Promise<{ success: boolean; user?: AuthUser; token?: string; error?: string }> {
+export async function loginApi(username: string, password: string, recaptchaToken?: string): Promise<{ success: boolean; user?: AuthUser; token?: string; error?: string }> {
   try {
-    console.log('Iniciando login para usuario:', username);
+    const u = (username ?? '').trim();
+    const p = (password ?? '').trim();
+    console.log('Iniciando login para usuario:', u);
+
+    if (!u || !p) {
+      return { success: false, error: 'Faltan credenciales' };
+    }
     
     const formData = new FormData();
-    formData.append("username", username);
-    formData.append("password", password);
+  formData.append("username", u);
+  formData.append("password", p);
+    // Backend espera el campo como 'recaptcha_token' (snake_case)
+    // para el decorator verify_recaptcha()
+    formData.append("recaptcha_token", recaptchaToken || '' );
 
     const response = await fetch(`${API_URL}/users/login`, {
       method: "POST",
@@ -18,7 +27,12 @@ export async function loginApi(username: string, password: string): Promise<{ su
     console.log('Respuesta del servidor:', response.status, response.statusText);
 
     if (response.status === 400) {
-      return { success: false, error: "Usuario o contraseña incorrectos" };
+      let errorMsg = "Usuario o contraseña incorrectos";
+      try {
+        const err = await response.clone().json();
+        if (err?.error) errorMsg = err.error;
+      } catch {}
+      return { success: false, error: errorMsg };
     }
 
     if (response.status === 500) {

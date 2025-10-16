@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Users, 
   UserCheck, 
@@ -20,6 +20,7 @@ const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, logout, hasPermission } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
 
   // Custom icon: Star inside a circle to emulate a "CircleStar" icon
@@ -155,7 +156,11 @@ const Sidebar: React.FC = () => {
           )}
         </div>
         <button
-          onClick={logout}
+          onClick={() => {
+            logout();
+            // Reemplaza la URL actual por /login para que no quede la privada en el historial
+            navigate('/login', { replace: true });
+          }}
           className={`flex items-center space-x-3 w-full px-3 py-2 text-primary-100 hover:bg-primary-500 hover:text-white rounded-lg transition-colors ${
             isCollapsed ? 'justify-center' : ''
           }`}

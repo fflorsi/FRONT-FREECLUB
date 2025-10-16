@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, X, User, Mail, Phone, MapPin, Calendar, Heart, AlertTriangle } from 'lucide-react';
+import { Save, X, User, Mail, Heart, AlertTriangle } from 'lucide-react';
 import Button from '../components/Common/Button';
 import { Persona, Usuario } from '../types';
 import { PERMISOS } from '../types';
@@ -7,7 +7,7 @@ import { PERMISOS } from '../types';
 import { crearPersona, editarPersona } from '../api/personas';
 import { crearUsuario } from '../api/usuarios';
 import { fetchRoles } from '../api/roles';
-import { fetchUsuarioPorUsername } from '../api/usuarios';
+// import { fetchUsuarioPorUsername } from '../api/usuarios';
 
 
 
@@ -28,7 +28,7 @@ const PersonaForm: React.FC<PersonaFormProps> = ({
     dni: persona?.dni || '',
     name: persona?.name || '',
     lastname: persona?.lastname || '',
-    cuit: persona?.cuit || '',
+    cuit: persona?.cuit ?? '',
     email: persona?.email || '',
     phone: persona?.phone || '',
     address: persona?.address || '',
@@ -77,12 +77,12 @@ const handleRolChange = (rolId: string | number, checked: boolean) => {
     const newErrors: { [key: string]: string } = {};
 
     if (!formData.dni) newErrors.dni = 'DNI es requerido';
-    if (!formData.name) newErrors.name = 'Nombre es requerido';
-    if (!formData.lastname) newErrors.lastname = 'Apellido es requerido';
-    if (!formData.cuit) newErrors.cuit = 'CUIT es requerido';
+  if (!formData.name) newErrors.nombre = 'Nombre es requerido';
+  if (!formData.lastname) newErrors.apellido = 'Apellido es requerido';
+    if (!formData.cuit && !isEditing) newErrors.cuit = 'CUIT es requerido';
     if (!formData.email) newErrors.email = 'Email es requerido';
-    if (!formData.phone) newErrors.telefono = 'Teléfono es requerido';
-    if (!formData.address) newErrors.address = 'Dirección es requerida';
+  if (!formData.phone) newErrors.telefono = 'Teléfono es requerido';
+  if (!formData.address) newErrors.direccion = 'Dirección es requerida';
     if (!formData.address_details) newErrors.address_details = 'Detalles de dirección requeridos';
     if (!formData.birthdate) newErrors.fechaNacimiento = 'Fecha de nacimiento es requerida';
     if (!formData.medical_coverage) newErrors.medical_coverage = 'Cobertura médica es requerida';
@@ -157,7 +157,12 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     if (isEditing) {
       // Editar persona existente
-      await editarPersona(formData.dni!, personaBackend);
+      const updateData: Record<string, unknown> = { ...personaBackend };
+      // Si el CUIT está vacío en edición, no lo mandamos para no sobreescribir con nada
+      if (!formData.cuit || formData.cuit === '') {
+        delete updateData.cuit;
+      }
+      await editarPersona(formData.dni!, updateData);
       onSave(formData as Persona);
       window.location.reload();
     } else {
@@ -196,10 +201,14 @@ useEffect(() => {
       )
       .filter(id => id !== undefined)
       .map(id => String(id));
-    setFormData({
-      ...persona,
+    setFormData(prev => ({
+      ...prev,
+     // ...persona,
+     /* cuit: persona.cuit !== undefined && persona.cuit !== null
+      ? persona.cuit
+      : prev.cuit, */
       roles: personaRoleIds,
-    });
+    }));
   }
 }, [isEditing, persona, roles]);
 
@@ -323,7 +332,7 @@ useEffect(() => {
                   </label>
                   <input
                     type="text"
-                    value={formData.cuit}
+                    value={formData.cuit ?? ''}
                     onChange={(e) => handleInputChange('cuit', e.target.value)}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                       errors.cuit ? 'border-danger-300' : 'border-dark-300'

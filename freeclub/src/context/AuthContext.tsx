@@ -4,7 +4,7 @@ import { loginApi } from '../api/auth';
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string, recaptchaToken?: string) => Promise<boolean>;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   isLoading: boolean;
@@ -40,9 +40,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string, recaptchaToken?: string) => {
     try {
-      const result = await loginApi(username, password);
+      const result = await loginApi(username, password,recaptchaToken);
       
       if (result.success && result.user && result.token) {
         setUser(result.user);

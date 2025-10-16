@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../Common/Button';
+
+const SITE_KEY = '6Lfc6uErAAAAAJRTi5-pj3chtdZghQmNh6x7FqJ2';
+
+declare global {
+  interface Window {
+    grecaptcha?: any;
+  }
+}
 
 const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -11,13 +19,18 @@ const LoginForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
+  const recaptchaWidgetIdRef = useRef<number | null>(null);
+
+  // Mantener valores actuales para que el callback de reCAPTCHA no use valores antiguos
+  const currentUsernameRef = useRef('');
+  const currentPasswordRef = useRef('');
+
+  const doLogin = useCallback(async (u: string, p: string, recaptchaToken?: string) => {
     setError('');
     setIsLoading(true);
-
     try {
-      const success = await login(username, password);
+      const success = await login(u, p, recaptchaToken);
       if (!success) {
         setError('Usuario o contraseña incorrectos');
       }
@@ -26,7 +39,59 @@ const LoginForm: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  }, [login]);
+
+  useEffect(() => {
+    const tryRender = () => {
+      if (window.grecaptcha && recaptchaContainerRef.current && recaptchaWidgetIdRef.current == null) {
+        recaptchaWidgetIdRef.current = window.grecaptcha.render(recaptchaContainerRef.current, {
+          sitekey: SITE_KEY,
+          size: 'invisible',
+          callback: (token: string) => {
+            // Usa los valores actuales en el momento de la verificación
+            doLogin(currentUsernameRef.current, currentPasswordRef.current, token);
+            // Resetea para próximos intentos
+            if (recaptchaWidgetIdRef.current != null) {
+              window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+            }
+          },
+        });
+      }
+    };
+    tryRender();
+    const id = setInterval(tryRender, 300);
+    return () => clearInterval(id);
+  }, [doLogin]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const u = username.trim();
+    const p = password.trim();
+    if (!u || !p) {
+      setError('Ingresa usuario y contraseña');
+      return;
+    }
+    // Normaliza estado para que el callback de reCAPTCHA lea los valores saneados
+    if (u !== username) setUsername(u);
+    if (p !== password) setPassword(p);
+    currentUsernameRef.current = u;
+    currentPasswordRef.current = p;
+    if (window.grecaptcha && recaptchaWidgetIdRef.current !== null) {
+      window.grecaptcha.execute(recaptchaWidgetIdRef.current);
+      return;
+    }
+    // Fallback (sin reCAPTCHA)
+    await doLogin(u, p);
   };
+
+  // Mantener los refs sincronizados con la entrada del usuario
+  useEffect(() => {
+    currentUsernameRef.current = username;
+  }, [username]);
+
+  useEffect(() => {
+    currentPasswordRef.current = password;
+  }, [password]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cream-50 via-primary-50 to-dark-100 flex items-center justify-center p-4">
@@ -39,7 +104,7 @@ const LoginForm: React.FC = () => {
           <p className="text-primary-100">Sistema de Gestión</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form id="login-form" onSubmit={handleSubmit} className="p-8 space-y-6">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-dark-700 mb-2">
               Usuario
@@ -94,7 +159,8 @@ const LoginForm: React.FC = () => {
             {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
           </Button>
 
-          
+          {/* Contenedor para reCAPTCHA invisible */}
+          <div ref={recaptchaContainerRef} />
         </form>
       </div>
     </div>

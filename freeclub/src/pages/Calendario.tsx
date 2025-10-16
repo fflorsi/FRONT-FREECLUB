@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Users, MapPin, Clock, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, MapPin, Clock, Filter } from 'lucide-react';
 import Card from '../components/Common/Card';
 import Button from '../components/Common/Button';
-import EventoForm from '../forms/EventoForm';
 import { feriadosArgentinos2024, mockAsistencias } from '../data/mockData';
 import { EventoCalendario } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -17,10 +16,8 @@ const Calendario: React.FC = () => {
   const [filtroActividad, setFiltroActividad] = useState<number | ''>('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [eventoSeleccionado, setEventoSeleccionado] = useState<EventoCalendario | null>(null);
-  const [showEventoForm, setShowEventoForm] = useState(false);
-  const [fechaSeleccionada, setFechaSeleccionada] = useState<string>('');
   const [showFiltros, setShowFiltros] = useState(false);
-  const [eventos, setEventos] = useState<EventoCalendario[]>([]);
+  const [eventos] = useState<EventoCalendario[]>([]); // setter no usado mientras la creación esté deshabilitada
   const [actividades, setActividades] = useState<ActividadResponse[]>([]);
   const [asignaciones, setAsignaciones] = useState<AsignacionResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +62,36 @@ const Calendario: React.FC = () => {
     return `${y}-${m}-${day}`;
   };
 
+  // Determinar asignaciones visibles según el usuario
+  const dniUser = user?.personaDni;
+  const rolesLower = useMemo(() => user?.persona.roles?.map(r => r.toLowerCase()) ?? [], [user]);
+  // Solo Administrador ve todas las actividades
+  const isAdmin = rolesLower.includes('administrador') || rolesLower.includes('admin');
+  // Personal técnico/operativo que consideramos como "profes" a efectos de visibilidad (solo ven asignadas)
+  const isStaff = [
+    'profesor/a','profesor','entrenador/a','entrenador','monitor/a','monitor','ayudante',
+    'coordinador/a','coordinador','preparador físico','preparador fisico',
+    'kinesiólogo/a','kinesiologo/a','kinesiologo','kinesiólogo',
+    'psicólogo/a','psicologo/a','psicologo','psicólogo',
+    'nutricionista','guardavidas','administrativo/a','administrativo','portero/a','portero',
+    'mantenimiento','delegado categoría','delegado categoria'
+  ].some(r => rolesLower.includes(r));
+  const isSocio = rolesLower.includes('socio') || rolesLower.includes('no socio');
+  // Alumno: socio/no socio sin ser admin ni staff
+  const isAlumno = isSocio && !isStaff && !isAdmin;
+  const misAsignaciones = useMemo(() => {
+    if (isAdmin) return asignaciones;
+    if (!dniUser) return [] as AsignacionResponse[];
+    return asignaciones.filter(a => a.dni === dniUser);
+  }, [asignaciones, dniUser, isAdmin]);
+
+  // Actividades visibles (solo las asignadas), excepto superadmin que ve todas
+  const actividadesVisibles = useMemo(() => {
+    if (isAdmin) return actividades;
+    const ids = new Set(misAsignaciones.map(a => a.activity_id));
+    return actividades.filter(act => ids.has(act.id));
+  }, [actividades, misAsignaciones, isAdmin]);
+
   // Generar eventos del calendario con datos reales
   const eventosGenerados = useMemo(() => {
     const out: EventoCalendario[] = [...eventos];
@@ -83,7 +110,8 @@ const Calendario: React.FC = () => {
 
     // Agrupar asignaciones por (actividad, dia, hora)
     const grupos = new Map<string, { activity_id: number; day: string; start: string; end: string; profesorDni?: string; ayudanteDni?: string }>();
-    for (const a of asignaciones) {
+    // Usar solo las asignaciones visibles para este usuario
+    for (const a of misAsignaciones) {
       const key = `${a.activity_id}|${a.day}|${a.start_time}|${a.end_time}`;
       const exist = grupos.get(key);
       const role = normalize(a.role);
@@ -133,7 +161,7 @@ const Calendario: React.FC = () => {
     });
 
     return out;
-  }, [fechaActual, actividades, asignaciones, eventos]);
+  }, [fechaActual, actividades, misAsignaciones, eventos]);
 
   // Filtrar eventos
   const eventosFiltrados = useMemo(() => {
@@ -211,31 +239,6 @@ const Calendario: React.FC = () => {
     }
   };
 
-  const handleDayClick = (fecha: Date) => {
-    const fechaStr = fecha.toISOString().split('T')[0];
-    setFechaSeleccionada(fechaStr);
-    setShowEventoForm(true);
-  };
-
-  const handleSaveEvento = (evento: EventoCalendario) => {
-    setEventos(prev => {
-      const existe = prev.find(e => e.id === evento.id);
-      if (existe) {
-        return prev.map(e => e.id === evento.id ? evento : e);
-      } else {
-        return [...prev, evento];
-      }
-    });
-    setShowEventoForm(false);
-    setEventoSeleccionado(null);
-    setFechaSeleccionada('');
-  };
-
-  const handleCancelEvento = () => {
-    setShowEventoForm(false);
-    setEventoSeleccionado(null);
-    setFechaSeleccionada('');
-  };
 
   const nombresMeses = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -246,11 +249,11 @@ const Calendario: React.FC = () => {
 
   // Para alumnos, mostrar sus asistencias
   const obtenerAsistenciasAlumno = (fecha: Date) => {
-    if (!user?.persona.roles.includes('alumno')) return [];
+    if (!isAlumno) return [];
     
     const fechaStr = fecha.toISOString().split('T')[0];
     return mockAsistencias.filter(a => 
-      a.personaDni === user.personaDni && 
+      a.personaDni === (user?.personaDni ?? '') && 
       a.fecha === fechaStr
     );
   };
@@ -261,10 +264,7 @@ const Calendario: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-dark-900">Calendario</h1>
           <p className="text-dark-600 mt-1">
-            {user?.persona.roles.includes('alumno') && !user?.persona.roles.includes('superadmin')
-              ? 'Tus actividades y asistencias'
-              : 'Programación de actividades y eventos'
-            }
+            {isAlumno ? 'Tus actividades y asistencias' : 'Programación de actividades y eventos'}
           </p>
         </div>
         <div className="flex space-x-3 mt-4 sm:mt-0">
@@ -276,15 +276,7 @@ const Calendario: React.FC = () => {
           >
             Filtros
           </Button>
-          {!user?.persona.roles.includes('alumno') && (
-            <Button 
-              icon={Plus} 
-              size="sm"
-              onClick={() => setShowEventoForm(true)}
-            >
-              Nuevo Evento
-            </Button>
-          )}
+          {/* Botón "Nuevo Evento" removido */}
         </div>
       </div>
 
@@ -302,7 +294,7 @@ const Calendario: React.FC = () => {
                 className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">Todas las actividades</option>
-                {actividades.map(act => (
+                {actividadesVisibles.map(act => (
                   <option key={act.id} value={act.id}>
                     {act.name} - {act.category}
                   </option>
@@ -310,22 +302,7 @@ const Calendario: React.FC = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-dark-700 mb-2">
-                Filtrar por tipo
-              </label>
-              <select
-                value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
-                className="w-full px-3 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">Todos los tipos</option>
-                <option value="entrenamiento">Entrenamientos</option>
-                <option value="partido">Partidos</option>
-                <option value="evento">Eventos</option>
-                <option value="feriado">Feriados</option>
-              </select>
-            </div>
+     
 
             <div className="flex items-end">
               <Button 
@@ -333,7 +310,7 @@ const Calendario: React.FC = () => {
                 size="sm"
                 onClick={() => {
                   setFiltroActividad('');
-                  setFiltroTipo('');
+                  
                 }}
               >
                 Limpiar Filtros
@@ -421,7 +398,7 @@ const Calendario: React.FC = () => {
                 className={`min-h-[120px] p-2 border-r border-b border-dark-100 ${
                   !esMesActualDia ? 'bg-dark-25' : 'bg-white'
                 } hover:bg-dark-50 transition-colors cursor-pointer`}
-                onClick={() => !user?.persona.roles.includes('alumno') && handleDayClick(fecha)}
+                onClick={() => { /* crear evento deshabilitado */ }}
               >
                 <div className={`text-sm font-medium mb-2 ${
                   esHoyDia 
@@ -468,7 +445,7 @@ const Calendario: React.FC = () => {
                   ))}
                   
                   {/* Mostrar asistencias para alumnos */}
-                  {user?.persona.roles.includes('alumno') && asistenciasDelDia.map(asistencia => (
+                  {isAlumno && asistenciasDelDia.map(asistencia => (
                     <div
                       key={asistencia.id}
                       className={`text-xs p-1 rounded border ${
@@ -519,7 +496,7 @@ const Calendario: React.FC = () => {
           </div>
         </div>
         
-        {user?.persona.roles.includes('alumno') && (
+        {isAlumno && (
           <div className="mt-4 pt-4 border-t border-dark-200">
             <h4 className="font-medium text-dark-900 mb-2">Asistencias:</h4>
             <div className="grid grid-cols-3 gap-4">
@@ -610,7 +587,7 @@ const Calendario: React.FC = () => {
                 >
                   Cerrar
                 </Button>
-                {eventoSeleccionado.tipo === 'entrenamiento' && !user?.persona.roles.includes('alumno') && (
+                {eventoSeleccionado.tipo === 'entrenamiento' && !isAlumno && (
                   <Button variant="primary">
                     Tomar Asistencia
                   </Button>
@@ -621,14 +598,7 @@ const Calendario: React.FC = () => {
         </div>
       )}
 
-      {/* Formulario de Evento */}
-      {showEventoForm && (
-        <EventoForm
-          fechaInicial={fechaSeleccionada}
-          onSave={handleSaveEvento}
-          onCancel={handleCancelEvento}
-        />
-      )}
+      {/* Formulario de Evento oculto hasta implementación */}
     </div>
   );
 };

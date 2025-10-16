@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Edit, Eye, Shield, Key, EyeOff } from 'lucide-react';
+import { Edit, Eye, Shield, Key, EyeOff, Search, Filter } from 'lucide-react';
 import Card from '../components/Common/Card';
 import Button from '../components/Common/Button';
 //import { mockUsuarios, mockPersonas } from '../data/mockData';
@@ -16,32 +16,45 @@ const Usuarios: React.FC = () => {
   //const [usuarios, setUsuarios] = useState<Usuario[]>(mockUsuarios);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
-  const [searchTerm, _setSearchTerm] = useState('');
-  const [statusFilter, _setStatusFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'view' | 'edit' | 'permissions'>('view');
   const [showEditPassword, setShowEditPassword] = useState(false); // Nuevo estado
+  const [passwordInput, setPasswordInput] = useState(''); // Campo de contraseña separado para no mostrar hash
+  const [passwordConfirm, setPasswordConfirm] = useState(''); // Confirmación de contraseña
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-      const cargar = async () => {
-        try {
+    const cargar = async () => {
+      try {
+        // Evitar disparar la llamada a /users si aún no hay token o permiso
+        const token = localStorage.getItem('authToken');
+        if (!token || !hasPermission(PERMISOS.VER_USUARIOS)) {
+          // Igual cargamos personas (público o menos restringido)
           setLoading(true);
-          const [usuariosData, personasData] = await Promise.all([
-            fetchUsuarios(),
-            fetchPersonas()
-          ]);
-          setUsuarios(usuariosData);
+          const personasData = await fetchPersonas();
           setPersonas(personasData);
-        } catch (e) {
-          console.error('Error cargando usuarios/personas:', e);
-        } finally {
-          setLoading(false);
+          setUsuarios([]);
+          return;
         }
-      };
-      cargar();
-  }, []);
+
+        setLoading(true);
+        const [usuariosData, personasData] = await Promise.all([
+          fetchUsuarios(),
+          fetchPersonas(),
+        ]);
+        setUsuarios(usuariosData);
+        setPersonas(personasData);
+      } catch (e) {
+        console.error('Error cargando usuarios/personas:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargar();
+  }, [hasPermission]);
 
 // Mapeo manual de nombre de permiso a ID numérico (ajusta los números según tu backend)
 const PERMISO_NOMBRE_A_ID: { [nombre: string]: number } = {
@@ -63,16 +76,37 @@ const PERMISO_NOMBRE_A_ID: { [nombre: string]: number } = {
 };
 
 
+const normalize = (str: string | undefined | null) =>
+  (str ?? '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0000-\u001F]/g, '')
+    .replace(/[\u0300-\u036f]/g, '') // quitar tildes
+    .toLowerCase()
+    .trim();
+
 const filteredUsuarios = useMemo(() => {
+  const q = normalize(searchTerm);
   return usuarios.filter(usuario => {
     const persona = personas.find(p => p.dni === usuario.username);
     // Solo mostrar usuarios cuya persona está activa
     if (!persona || !persona.member) return false;
+
+    const usernameNorm = normalize(usuario.username);
+    const dniNorm = normalize(persona?.dni);
+    const nameNorm = normalize(persona?.name);
+    const lastnameNorm = normalize(persona?.lastname);
+    const fullName = `${nameNorm} ${lastnameNorm}`.trim();
+    const reversedFullName = `${lastnameNorm} ${nameNorm}`.trim();
+
     const matchesSearch =
-      usuario.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      persona?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      persona?.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      persona?.dni?.includes(searchTerm);
+      q === '' ||
+      usernameNorm.includes(q) || // DNI = username
+      dniNorm.includes(q) ||
+      nameNorm.includes(q) ||
+      lastnameNorm.includes(q) ||
+      fullName.includes(q) ||
+      reversedFullName.includes(q);
 
     const matchesStatus = statusFilter === '' ||
       (statusFilter === 'activo' && usuario.activo) ||
@@ -94,6 +128,12 @@ const filteredUsuarios = useMemo(() => {
     setSelectedUsuario(usuario);
     setModalType(type);
     setShowModal(true);
+    // Resetear estado de contraseña al abrir edición para no mostrar el hash
+    if (type === 'edit') {
+      setPasswordInput('');
+      setPasswordConfirm('');
+      setShowEditPassword(false);
+    }
     // Prevenir scroll del body
     document.body.classList.add('modal-open');
   };
@@ -103,6 +143,9 @@ const filteredUsuarios = useMemo(() => {
     setShowModal(false);
     // Restaurar scroll del body
     document.body.classList.remove('modal-open');
+    // Limpiar campo de contraseña al cerrar
+    setPasswordInput('');
+    setPasswordConfirm('');
   };
 
   const getPermissionName = (permission: string) => {
@@ -144,6 +187,43 @@ return (
         <p className="text-dark-600 mt-1">Gestión de usuarios del sistema</p>
       </div>
     </div>
+
+    {/* Filtros */}
+    <Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Buscador */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-400" size={16} />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, apellido o DNI..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 w-full px-4 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Filtro de estado */}
+        <div className="relative">
+          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-400" size={16} />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="pl-10 w-full px-4 py-2 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            <option value="">Todos</option>
+            <option value="activo">Activos</option>
+            <option value="inactivo">Inactivos</option>
+          </select>
+        </div>
+
+        {/* Espaciador/Resumen */}
+        <div className="md:col-span-2 text-sm text-dark-600 flex items-center">
+          <span className="font-medium">{filteredUsuarios.length}</span>
+          <span className="ml-1">usuarios encontrados</span>
+        </div>
+      </div>
+    </Card>
 
     {/* Tabla de usuarios */}
     <Card>
@@ -421,13 +501,9 @@ return (
                           <input
                             type={showEditPassword ? 'text' : 'password'}
                             className="mt-1 block w-full border border-dark-200 rounded px-3 py-2 pr-10"
-                            value={selectedUsuario.password || ''}
-                            onChange={e =>
-                              setSelectedUsuario({
-                                ...selectedUsuario,
-                                password: e.target.value
-                              })
-                            }
+                            placeholder="Nueva contraseña (dejar en blanco para mantener)"
+                            value={passwordInput}
+                            onChange={e => setPasswordInput(e.target.value)}
                           />
                           <button
                             type="button"
@@ -438,6 +514,29 @@ return (
                             {showEditPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                           </button>
                         </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-dark-700">Confirmar contraseña:</label>
+                        <div className="relative">
+                          <input
+                            type={showEditPassword ? 'text' : 'password'}
+                            className={`mt-1 block w-full border rounded px-3 py-2 pr-10 ${passwordInput && passwordConfirm && passwordInput !== passwordConfirm ? 'border-danger-400 focus:border-danger-500' : 'border-dark-200'}`}
+                            placeholder="Repite la nueva contraseña"
+                            value={passwordConfirm}
+                            onChange={e => setPasswordConfirm(e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
+                            tabIndex={-1}
+                          >
+                            {showEditPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          </button>
+                        </div>
+                        {passwordInput && passwordConfirm && passwordInput !== passwordConfirm && (
+                          <p className="mt-1 text-sm text-danger-600">Las contraseñas no coinciden.</p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -474,17 +573,32 @@ return (
               {modalType !== 'view' && (
                 <Button
                   variant="primary"
+                  disabled={modalType === 'edit' && passwordInput.trim() !== '' && passwordInput !== passwordConfirm}
                   onClick={async () => {
                     if (selectedUsuario) {
                       try {
-                        // Enviar los permisos como nombres (strings)
-                      await updateUsuario(selectedUsuario.id, {
-                        username: selectedUsuario.username,
-                        password: selectedUsuario.password,
-                        permissions: selectedUsuario.permissions
-                          .map(nombre => PERMISO_NOMBRE_A_ID[nombre])
-                          .filter((id): id is number => typeof id === "number"), // Solo IDs válidos
-                      });
+                        if (modalType === 'edit') {
+                          // Solo actualizar username/contraseña; no reenviar permisos aquí
+                          const payload: { username: string; password?: string } = {
+                            username: selectedUsuario.username,
+                          };
+                          if (passwordInput.trim()) {
+                            if (passwordInput !== passwordConfirm) {
+                              // Doble guard para evitar envío si no coinciden
+                              return;
+                            }
+                            payload.password = passwordInput;
+                          }
+                          await updateUsuario(selectedUsuario.id, payload);
+                        } else if (modalType === 'permissions') {
+                          // Enviar permisos y username (sin contraseña)
+                          await updateUsuario(selectedUsuario.id, {
+                            username: selectedUsuario.username,
+                            permissions: (selectedUsuario.permissions ?? [])
+                              .map(nombre => PERMISO_NOMBRE_A_ID[nombre])
+                              .filter((id): id is number => typeof id === 'number'),
+                          });
+                        }
                         // Refresca la lista de usuarios
                         const nuevosUsuarios = await fetchUsuarios();
                         setUsuarios(nuevosUsuarios);
