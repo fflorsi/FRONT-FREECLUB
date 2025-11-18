@@ -119,10 +119,11 @@ const LoginForm: React.FC = () => {
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
               style={{ 
-                fontSize: '16px'
+                fontSize: '16px',
+                height: '48px',
               } as React.CSSProperties}
               placeholder="Ingrese su usuario"
-              autoComplete="off"
+              autoComplete="username"
               required
             />
           </div>
@@ -142,11 +143,9 @@ const LoginForm: React.FC = () => {
                 style={{ 
                   fontSize: '16px',
                   height: '48px',
-                  lineHeight: 'normal'
                 } as React.CSSProperties}
                 placeholder="Ingrese su contraseña"
                 autoComplete="current-password"
-                inputMode='text'
                 required
               />
               <button
