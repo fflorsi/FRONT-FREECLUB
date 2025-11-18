@@ -64,16 +64,7 @@ const LoginForm: React.FC = () => {
     return () => clearInterval(id);
   }, [doLogin]);
 
-  // Fix específico para iOS: forzar re-render del input cuando cambia el tipo
-  useEffect(() => {
-    if (passwordInputRef.current) {
-      // Forzar a iOS a reconocer el cambio de tipo
-      passwordInputRef.current.blur();
-      setTimeout(() => {
-        passwordInputRef.current?.focus();
-      }, 0);
-    }
-  }, [showPassword]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,15 +119,10 @@ const LoginForm: React.FC = () => {
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
               style={{ 
-                fontSize: '16px',
-                WebkitAppearance: 'none',
-                MozAppearance: 'none',
-                appearance: 'none'
-              }}
+                fontSize: '16px'
+              } as React.CSSProperties}
               placeholder="Ingrese su usuario"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck="false"
+              autoComplete="off"
               required
             />
           </div>
@@ -154,25 +140,16 @@ const LoginForm: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
                 style={{ 
-                  fontSize: '16px',
-                  lineHeight: '1.5',
-                  height: '48px',
-                  WebkitAppearance: 'none',
-                  MozAppearance: 'none',
-                  appearance: 'none'
+                  fontSize: '16px'
                 } as React.CSSProperties}
                 placeholder="Ingrese su contraseña"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck="false"
-                autoComplete="current-password"
+                autoComplete="off"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700 touch-manipulation"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
