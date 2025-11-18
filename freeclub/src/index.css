@@ -20,4 +20,3 @@ input[type="password"]::-webkit-clear-button,
 input[type="password"]::-webkit-credentials-auto-fill-button {
   display: none;
 }
-

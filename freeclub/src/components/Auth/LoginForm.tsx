@@ -115,11 +115,11 @@ const LoginForm: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+              style={{fontSize: '16px'}}
               placeholder="Ingrese su usuario"
               required
             />
           </div>
-
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-dark-700 mb-2">
               Contraseña
@@ -130,16 +130,17 @@ const LoginForm: React.FC = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg 
-                  focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200
-                  ${!showPassword ? 'text-[1px] tracking-[10px] ios-password' : ''}`}
+                className="w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+                style={{fontSize: '16px'}}
                 placeholder="Ingrese su contraseña"
                 required
+                autoComplete="current-password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
