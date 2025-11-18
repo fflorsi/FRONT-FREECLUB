@@ -143,15 +143,20 @@ const LoginForm: React.FC = () => {
                 style={{ 
                   fontSize: '16px',
                   height: '48px',
-                } as React.CSSProperties}
+                  WebkitAppearance: 'none',
+                  appearance: 'none'
+                } as React.CSSProperties & { WebkitAppearance?: string }}
                 placeholder="Ingrese su contraseña"
                 autoComplete="current-password"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700 z-10"
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 tabIndex={-1}
               >
