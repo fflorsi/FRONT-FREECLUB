@@ -21,6 +21,7 @@ const LoginForm: React.FC = () => {
 
   const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
   const recaptchaWidgetIdRef = useRef<number | null>(null);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   // Mantener valores actuales para que el callback de reCAPTCHA no use valores antiguos
   const currentUsernameRef = useRef('');
@@ -62,6 +63,17 @@ const LoginForm: React.FC = () => {
     const id = setInterval(tryRender, 300);
     return () => clearInterval(id);
   }, [doLogin]);
+
+  // Fix específico para iOS: forzar re-render del input cuando cambia el tipo
+  useEffect(() => {
+    if (passwordInputRef.current) {
+      // Forzar a iOS a reconocer el cambio de tipo
+      passwordInputRef.current.blur();
+      setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 0);
+    }
+  }, [showPassword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,31 +127,52 @@ const LoginForm: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
-              style={{fontSize: '16px'}}
+              style={{ 
+                fontSize: '16px',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none',
+                appearance: 'none'
+              }}
               placeholder="Ingrese su usuario"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
               required
             />
           </div>
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-dark-700 mb-2">
               Contraseña
             </label>
             <div className="relative">
               <input
+                ref={passwordInputRef}
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
-                style={{fontSize: '16px'}}
+                style={{ 
+                  fontSize: '16px',
+                  lineHeight: '1.5',
+                  height: '48px',
+                  WebkitAppearance: 'none',
+                  MozAppearance: 'none',
+                  appearance: 'none'
+                } as React.CSSProperties}
                 placeholder="Ingrese su contraseña"
-                required
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 autoComplete="current-password"
+                required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700 touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
