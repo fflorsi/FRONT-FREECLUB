@@ -92,7 +92,6 @@ const TomarAsistencia: React.FC = () => {
         const alumnosData = await getAlumnosDeActividad(activityId);
         setAsignacionesActividad(alumnosData);
 
-        // Traer asistencias existentes y filtrar las de hoy para estas asignaciones
         const todasAsist = await getAsistencias();
         const idsAsignaciones = new Set(alumnosData.map(a => a.id));
         const asistenciasHoy = todasAsist.filter(a => a.day === fechaHoyFmt && idsAsignaciones.has(a.assignation));
@@ -118,7 +117,16 @@ const TomarAsistencia: React.FC = () => {
         setAsistenciasTemp(nuevasAsistencias);
       } catch (error) {
         console.error('Error al cargar alumnos:', error);
-        setMensaje('❌ Error al cargar alumnos de la actividad');
+        if (error instanceof Error) {
+          if (error.message.includes('permisos') || error.message.includes('403')) {
+            setMensaje('❌ No tienes permisos para ver las asignaciones. Contacta al administrador.');
+          } else {
+            setMensaje('❌ Error: ' + error.message);
+          }
+        } else {
+          setMensaje('❌ Error al cargar alumnos de la actividad');
+        }
+        setTimeout(() => setMensaje(''), 8000);
       } finally {
         setLoadingAlumnos(false);
       }

@@ -13,6 +13,8 @@ import TomarAsistencia from './pages/TomarAsistencia';
 import Calendario from './pages/Calendario';
 import Configuracion from './pages/Configuración';
 import { PERMISOS } from './types';
+// DebugConsole: Descomentar la siguiente línea para activar la consola de debug
+// import DebugConsole from './components/DebugConsole';
 
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -96,15 +98,16 @@ const AppContent: React.FC = () => {
     </Layout>
   );
 };
-
+ 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <AppContent />
+        {/* DebugConsole: Descomentar las siguientes líneas para activar la consola de debug */}
+         {/* {import.meta.env.DEV && <DebugConsole />} */}
       </Router>
     </AuthProvider>
-  );
-}
-
+  ); 
+}  
 export default App;

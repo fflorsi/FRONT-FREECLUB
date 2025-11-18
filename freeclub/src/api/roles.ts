@@ -1,6 +1,6 @@
 import { fetchWithAuth } from "./auth";
+import { API_URL } from "./config";
 
-export const API_URL = "http://localhost:5000";
 
 export interface RoleResponse {
   id: number;

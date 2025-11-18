@@ -1,8 +1,9 @@
+@import './styles/responsive.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import './styles/responsive.css';
 /* Completely disable space-y-6 in modals */
 .modal-open .space-y-6 > * {
   margin-top: 0 !important;

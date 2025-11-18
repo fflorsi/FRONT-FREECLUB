@@ -1,4 +1,6 @@
-import { API_URL, fetchWithAuth } from './auth';
+import { fetchWithAuth } from './auth';
+import { API_URL } from "./config";
+
 
 export interface AsignacionResponse {
   id: number;
@@ -34,16 +36,37 @@ export async function getAsignaciones(): Promise<AsignacionResponse[]> {
     return inflightAsignaciones;
   }
   inflightAsignaciones = (async () => {
-    const response = await fetchWithAuth(`${API_URL}/asignations`);
-    if (!response.ok) {
+    try {
+      const response = await fetchWithAuth(`${API_URL}asignations`);
+      
+      if (!response.ok) {
+        inflightAsignaciones = null;
+        const errorText = await response.text();
+        console.error('Error al obtener asignaciones:', response.status, errorText);
+        throw new Error(`Error al obtener asignaciones: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('El servidor devolvió un error:', data.error);
+        throw new Error(data.error);
+      }
+      
+      if (!Array.isArray(data)) {
+        console.error('La respuesta no es un array:', typeof data);
+        throw new Error('La respuesta del servidor no es válida');
+      }
+      
+      asignacionesCache = data;
+      asignacionesCacheAt = Date.now();
       inflightAsignaciones = null;
-      throw new Error('Error al obtener asignaciones');
+      return data;
+    } catch (error) {
+      inflightAsignaciones = null;
+      console.error('Excepción al obtener asignaciones:', error);
+      throw error;
     }
-    const data = await response.json();
-    asignacionesCache = data;
-    asignacionesCacheAt = Date.now();
-    inflightAsignaciones = null;
-    return data;
   })();
   return inflightAsignaciones;
 }

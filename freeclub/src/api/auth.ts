@@ -1,30 +1,30 @@
 import { AuthUser } from "../types";
-
-export const API_URL = "http://localhost:5000";
+import { API_URL } from "./config";
 
 export async function loginApi(username: string, password: string, recaptchaToken?: string): Promise<{ success: boolean; user?: AuthUser; token?: string; error?: string }> {
   try {
     const u = (username ?? '').trim();
     const p = (password ?? '').trim();
-    console.log('Iniciando login para usuario:', u);
 
     if (!u || !p) {
       return { success: false, error: 'Faltan credenciales' };
     }
     
     const formData = new FormData();
-  formData.append("username", u);
-  formData.append("password", p);
-    // Backend espera el campo como 'recaptcha_token' (snake_case)
-    // para el decorator verify_recaptcha()
+    formData.append("username", u);
+    formData.append("password", p);
     formData.append("recaptcha_token", recaptchaToken || '' );
 
-    const response = await fetch(`${API_URL}/users/login`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 10000);
+
+    const response = await fetch(`${API_URL}users/login`, {
       method: "POST",
       body: formData,
-    });
-
-    console.log('Respuesta del servidor:', response.status, response.statusText);
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId));
 
     if (response.status === 400) {
       let errorMsg = "Usuario o contraseña incorrectos";
@@ -36,34 +36,33 @@ export async function loginApi(username: string, password: string, recaptchaToke
     }
 
     if (response.status === 500) {
-      console.error('Error 500 del servidor');
       return { success: false, error: "Error interno del servidor" };
     }
 
     if (!response.ok) {
-      console.error('Error de respuesta:', response.status);
       return { success: false, error: "Error de conexión" };
     }
 
     const data = await response.json();
-    console.log('Datos de respuesta:', data);
-    
     const token = data.access_token;
 
     if (!token) {
       return { success: false, error: "Token no recibido" };
     }
 
-    // Decodificar el token para obtener información del usuario
     const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-    console.log('Token payload:', tokenPayload);
     
-    // Obtener datos completos del usuario
-    const userResponse = await fetch(`${API_URL}/users/${tokenPayload.sub}`, {
+    const userController = new AbortController();
+    const userTimeoutId = setTimeout(() => {
+      userController.abort();
+    }, 10000);
+    
+    const userResponse = await fetch(`${API_URL}users/${tokenPayload.sub}`, {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
-    });
+      },
+      signal: userController.signal,
+    }).finally(() => clearTimeout(userTimeoutId));
 
     if (!userResponse.ok) {
       console.error('Error al obtener datos del usuario:', userResponse.status);
@@ -71,23 +70,28 @@ export async function loginApi(username: string, password: string, recaptchaToke
     }
 
     const userData = await userResponse.json();
-    console.log('Datos del usuario:', userData);
     
     // Obtener datos de la persona
     let personData = null;
     try {
-      const personResponse = await fetch(`${API_URL}/persons/${userData.username}`, {
+      const personController = new AbortController();
+      const personTimeoutId = setTimeout(() => {
+        personController.abort();
+      }, 10000);
+      
+      const personResponse = await fetch(`${API_URL}persons/${userData.username}`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
-      });
+        },
+        signal: personController.signal,
+      }).finally(() => clearTimeout(personTimeoutId));
 
       if (personResponse.ok) {
         personData = await personResponse.json();
       }
     } catch (personError) {
-      console.warn('No se pudieron obtener los datos de la persona:', personError);
       // Continúa sin los datos de la persona
+      console.warn('No se pudieron obtener datos de la persona');
     }
 
     const user: AuthUser = {
@@ -99,11 +103,13 @@ export async function loginApi(username: string, password: string, recaptchaToke
       personaDni: userData.personaDni || userData.username
     };
 
-    console.log('Usuario creado exitosamente:', user);
     return { success: true, user, token };
 
   } catch (error) {
-    console.error("Error completo en login:", error);
+    console.error("Error en login:", error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { success: false, error: "Tiempo de espera agotado. Verifica tu conexión." };
+    }
     return { success: false, error: "Error de conexión al servidor" };
   }
 }

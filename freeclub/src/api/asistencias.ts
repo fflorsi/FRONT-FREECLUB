@@ -1,4 +1,5 @@
-import { API_URL, fetchWithAuth } from './auth';
+import { fetchWithAuth } from './auth';
+import { API_URL } from "./config";
 
 export interface AsistenciaBackend {
   id?: number;
@@ -26,11 +27,27 @@ export interface AsistenciaResponse {
 
 // Obtener todas las asistencias
 export async function getAsistencias(): Promise<AsistenciaResponse[]> {
-  const response = await fetchWithAuth(`${API_URL}/attendancies`);
-  if (!response.ok) {
-    throw new Error('Error al obtener asistencias');
+  try {
+    const response = await fetchWithAuth(`${API_URL}attendancies`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error al obtener asistencias:', response.status, errorText);
+      throw new Error(`Error al obtener asistencias: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('El servidor devolvió un error:', data.error);
+      throw new Error(data.error);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Excepción al obtener asistencias:', error);
+    throw error;
   }
-  return response.json();
 }
 
 // Crear nueva asistencia

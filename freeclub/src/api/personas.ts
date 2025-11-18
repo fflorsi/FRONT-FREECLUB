@@ -1,7 +1,7 @@
 import { RoleResponse } from './roles';
 import { fetchWithAuth } from "./auth";
+import { API_URL } from "./config";
 
-const API_URL = "http://localhost:5000";
 export interface PersonaResponse {
   dni: string;
   name: string;

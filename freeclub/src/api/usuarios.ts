@@ -1,7 +1,7 @@
 import { Usuario } from "../types/index.ts";
 import { fetchWithAuth } from "./auth";
+import { API_URL } from "./config";
 
-export const API_URL = "http://localhost:5000"; // o el puerto donde corre Flask
 
 
 export async function fetchUsuarios() {

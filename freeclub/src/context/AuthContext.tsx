@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string, recaptchaToken?: string) => {
     try {
-      const result = await loginApi(username, password,recaptchaToken);
+      const result = await loginApi(username, password, recaptchaToken);
       
       if (result.success && result.user && result.token) {
         setUser(result.user);
@@ -50,11 +50,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('authToken', result.token);
         return true;
       } else {
-        console.error('Error en login:', result.error);
+        console.error('Login falló:', result.error);
         return false;
       }
     } catch (error) {
-      console.error('Error en login:', error);
+      console.error('Excepción en login:', error);
       return false;
     }
   };

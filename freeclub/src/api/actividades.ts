@@ -1,4 +1,5 @@
-import { API_URL, fetchWithAuth } from './auth';
+import { fetchWithAuth } from './auth';
+import { API_URL } from './config';
 
 export interface ActividadResponse {
   id: number;

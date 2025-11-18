@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Conectividad</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 4px solid #22c55e; }
+        .error { border-left: 4px solid #ef4444; }
+        .pending { border-left: 4px solid #eab308; }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #logs {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test de Conectividad FreeClub</h1>
+    
+    <div id="info" class="test pending">
+        <h3>📱 Información del dispositivo</h3>
+        <p id="userAgent">Cargando...</p>
+        <p id="networkInfo">Cargando...</p>
+    </div>
+
+    <div id="frontend-test" class="test pending">
+        <h3>🌐 Frontend (Vite)</h3>
+        <p>Si ves esto, el frontend carga correctamente ✅</p>
+    </div>
+
+    <div id="backend-test" class="test pending">
+        <h3>🔌 Backend (Flask)</h3>
+        <p id="backend-status">Probando conexión...</p>
+        <button onclick="testBackend()">Probar Backend</button>
+    </div>
+
+    <div id="login-test" class="test pending">
+        <h3>🔐 Test de Login</h3>
+        <input type="text" id="username" placeholder="Usuario (DNI)" style="width: 100%; padding: 8px; margin: 5px 0;">
+        <input type="password" id="password" placeholder="Contraseña" style="width: 100%; padding: 8px; margin: 5px 0;">
+        <button onclick="testLogin()">Probar Login</button>
+    </div>
+
+    <h3>📋 Logs</h3>
+    <div id="logs"></div>
+
+    <script>
+        const API_URL = 'http://192.168.100.50:5000/';
+        
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'success' ? '#44ff44' : '#00ff00';
+            logs.innerHTML += `<div style="color: ${color}">[${time}] ${message}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+
+        // Mostrar info del dispositivo
+        document.getElementById('userAgent').textContent = `User Agent: ${navigator.userAgent}`;
+        document.getElementById('networkInfo').textContent = `Online: ${navigator.onLine} | Cookies: ${navigator.cookieEnabled}`;
+        document.getElementById('frontend-test').className = 'test success';
+        log('✅ Frontend cargado correctamente');
+
+        // Probar backend automáticamente
+        async function testBackend() {
+            const div = document.getElementById('backend-test');
+            const status = document.getElementById('backend-status');
+            
+            try {
+                log(`🔄 Probando conexión a: ${API_URL}users`);
+                const response = await fetch(`${API_URL}users`, {
+                    method: 'GET',
+                });
+                
+                log(`📥 Respuesta recibida: Status ${response.status}`);
+                
+                if (response.status === 401) {
+                    div.className = 'test success';
+                    status.innerHTML = '✅ Backend responde (401 = sin autenticación, pero funciona)';
+                    log('✅ Backend conectado correctamente', 'success');
+                } else {
+                    div.className = 'test success';
+                    status.innerHTML = `✅ Backend responde (status: ${response.status})`;
+                    log(`✅ Backend responde con status: ${response.status}`, 'success');
+                }
+            } catch (error) {
+                div.className = 'test error';
+                status.innerHTML = `❌ Error: ${error.message}`;
+                log(`❌ Error conectando al backend: ${error.message}`, 'error');
+                log(`❌ Tipo de error: ${error.name}`, 'error');
+            }
+        }
+
+        // Test de login
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const div = document.getElementById('login-test');
+
+            if (!username || !password) {
+                alert('Por favor ingresa usuario y contraseña');
+                return;
+            }
+
+            try {
+                log(`🔐 Intentando login con usuario: ${username}`);
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+                formData.append('recaptcha_token', '');
+
+                const response = await fetch(`${API_URL}users/login`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                log(`📥 Respuesta de login: Status ${response.status}`);
+                const data = await response.json();
+                log(`📦 Datos recibidos: ${JSON.stringify(data)}`);
+
+                if (response.ok && data.access_token) {
+                    div.className = 'test success';
+                    log('✅ LOGIN EXITOSO! Token recibido', 'success');
+                    alert('✅ Login exitoso!\n\nToken: ' + data.access_token.substring(0, 50) + '...');
+                } else {
+                    div.className = 'test error';
+                    log(`❌ Login falló: ${data.error || 'Error desconocido'}`, 'error');
+                    alert('❌ Login falló: ' + (data.error || 'Error desconocido'));
+                }
+            } catch (error) {
+                div.className = 'test error';
+                log(`❌ Error en login: ${error.message}`, 'error');
+                alert('❌ Error: ' + error.message);
+            }
+        }
+
+        // Ejecutar test de backend al cargar
+        window.onload = () => {
+            log('🚀 Página cargada, iniciando tests...');
+            testBackend();
+        };
+    </script>
+</body>
+</html>

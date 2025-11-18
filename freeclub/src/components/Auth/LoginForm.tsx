@@ -3,7 +3,7 @@ import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../Common/Button';
 
-const SITE_KEY = '6Lfc6uErAAAAAJRTi5-pj3chtdZghQmNh6x7FqJ2';
+const SITE_KEY = '6LcTyBAsAAAAAGgRPdslbHoQqazTYXeealrAxIGg';
 
 declare global {
   interface Window {
@@ -22,6 +22,7 @@ const LoginForm: React.FC = () => {
   const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
   const recaptchaWidgetIdRef = useRef<number | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
 
   // Mantener valores actuales para que el callback de reCAPTCHA no use valores antiguos
   const currentUsernameRef = useRef('');
@@ -35,33 +36,68 @@ const LoginForm: React.FC = () => {
       if (!success) {
         setError('Usuario o contraseña incorrectos');
       }
-    } catch {
+    } catch (err) {
+      console.error('Error en login:', err);
       setError('Error en el sistema. Intente nuevamente.');
     } finally {
       setIsLoading(false);
     }
   }, [login]);
 
+  // Configurar reCAPTCHA cuando esté listo
   useEffect(() => {
-    const tryRender = () => {
-      if (window.grecaptcha && recaptchaContainerRef.current && recaptchaWidgetIdRef.current == null) {
-        recaptchaWidgetIdRef.current = window.grecaptcha.render(recaptchaContainerRef.current, {
-          sitekey: SITE_KEY,
-          size: 'invisible',
-          callback: (token: string) => {
-            // Usa los valores actuales en el momento de la verificación
-            doLogin(currentUsernameRef.current, currentPasswordRef.current, token);
-            // Resetea para próximos intentos
-            if (recaptchaWidgetIdRef.current != null) {
-              window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+    let mounted = true;
+    let intervalId: number | null = null;
+
+    const setupRecaptcha = () => {
+      if (!mounted) return;
+      
+      if (window.grecaptcha && window.grecaptcha.render && recaptchaContainerRef.current && recaptchaWidgetIdRef.current === null) {
+        try {
+          recaptchaWidgetIdRef.current = window.grecaptcha.render(recaptchaContainerRef.current, {
+            sitekey: SITE_KEY,
+            size: 'normal',
+            callback: () => {
+              // Token será obtenido en handleSubmit
+            },
+            'error-callback': () => {
+              setError('Error con la verificación. Intenta nuevamente.');
+              setIsLoading(false);
+            },
+            'expired-callback': () => {
+              if (recaptchaWidgetIdRef.current != null) {
+                try {
+                  window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+                } catch (e) {
+                  console.error('Error al resetear reCAPTCHA:', e);
+                }
+              }
             }
-          },
-        });
+          });
+          setRecaptchaReady(true);
+          if (intervalId) clearInterval(intervalId);
+        } catch (err) {
+          console.error('Error al configurar reCAPTCHA:', err);
+        }
       }
     };
-    tryRender();
-    const id = setInterval(tryRender, 300);
-    return () => clearInterval(id);
+
+    // Intentar configurar inmediatamente
+    setupRecaptcha();
+    
+    // Reintentar cada 500ms hasta que se configure
+    intervalId = setInterval(setupRecaptcha, 500);
+
+    // Limpiar después de 10 segundos
+    const timeoutId = setTimeout(() => {
+      if (intervalId) clearInterval(intervalId);
+    }, 10000);
+
+    return () => {
+      mounted = false;
+      if (intervalId) clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
   }, [doLogin]);
 
 
@@ -74,17 +110,39 @@ const LoginForm: React.FC = () => {
       setError('Ingresa usuario y contraseña');
       return;
     }
-    // Normaliza estado para que el callback de reCAPTCHA lea los valores saneados
-    if (u !== username) setUsername(u);
-    if (p !== password) setPassword(p);
+    
     currentUsernameRef.current = u;
     currentPasswordRef.current = p;
+    
+    // Obtener token de reCAPTCHA (OBLIGATORIO)
     if (window.grecaptcha && recaptchaWidgetIdRef.current !== null) {
-      window.grecaptcha.execute(recaptchaWidgetIdRef.current);
-      return;
+      try {
+        const recaptchaToken = window.grecaptcha.getResponse(recaptchaWidgetIdRef.current);
+        
+        // Validar que el reCAPTCHA esté completado
+        if (!recaptchaToken) {
+          setError('Por favor completa la verificación de seguridad');
+          return;
+        }
+        
+        await doLogin(u, p, recaptchaToken);
+        
+        // Resetear reCAPTCHA después del intento
+        try {
+          window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+        } catch (e) {
+          console.error('Error al resetear reCAPTCHA:', e);
+        }
+        return;
+      } catch (err) {
+        console.error('Error al obtener token de reCAPTCHA:', err);
+        setError('Error con la verificación. Intenta nuevamente.');
+        return;
+      }
     }
-    // Fallback (sin reCAPTCHA)
-    await doLogin(u, p);
+    
+    // Si reCAPTCHA no está disponible, mostrar error
+    setError('Verificación de seguridad no disponible. Recarga la página.');
   };
 
   // Mantener los refs sincronizados con la entrada del usuario
@@ -172,6 +230,11 @@ const LoginForm: React.FC = () => {
             </div>
           )}
 
+          {/* Contenedor para reCAPTCHA checkbox */}
+          <div className="flex justify-center">
+            <div ref={recaptchaContainerRef} />
+          </div>
+
           <Button
             type="submit"
             disabled={isLoading}
@@ -180,9 +243,6 @@ const LoginForm: React.FC = () => {
           >
             {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
           </Button>
-
-          {/* Contenedor para reCAPTCHA invisible */}
-          <div ref={recaptchaContainerRef} />
         </form>
       </div>
     </div>
