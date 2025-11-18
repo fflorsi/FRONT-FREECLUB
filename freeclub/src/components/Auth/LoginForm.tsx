@@ -140,10 +140,12 @@ const LoginForm: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
                 style={{ 
-                  fontSize: '16px'
+                  fontSize: '16px',
+                  WebkitTextSecurity: showPassword ? 'none' : 'disc',
+                  WebkitAppearance: 'none'
                 } as React.CSSProperties}
                 placeholder="Ingrese su contraseña"
-                autoComplete="off"
+                autoComplete="current-password "
                 required
               />
               <button
