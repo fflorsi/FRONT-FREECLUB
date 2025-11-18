@@ -136,6 +136,7 @@ const LoginForm: React.FC = () => {
               <input
                 ref={passwordInputRef}
                 id="password"
+                name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
