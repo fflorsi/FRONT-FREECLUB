@@ -130,8 +130,9 @@ const LoginForm: React.FC = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 
-                ${!showPassword ? 'ios-password' : ''}`}
+                className={`w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg 
+                  focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200
+                  ${!showPassword ? 'text-[1px] tracking-[10px] ios-password' : ''}`}
                 placeholder="Ingrese su contraseña"
                 required
               />
