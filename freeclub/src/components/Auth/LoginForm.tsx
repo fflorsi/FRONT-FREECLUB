@@ -22,6 +22,8 @@ const LoginForm: React.FC = () => {
   const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
   const recaptchaWidgetIdRef = useRef<number | null>(null);
 
+  const passwordRef = useRef<HTMLInputElement | null>(null);
+
   // Mantener valores actuales para que el callback de reCAPTCHA no use valores antiguos
   const currentUsernameRef = useRef('');
   const currentPasswordRef = useRef('');
@@ -127,17 +129,28 @@ const LoginForm: React.FC = () => {
             <div className="relative">
               <input
                 id="password"
+                ref={passwordRef}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
                 placeholder="Ingrese su contraseña"
                 required
+                autoComplete="current-password"
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchStart={(e) => e.preventDefault()}             
+                onClick={() => {
+                  setShowPassword((s) => !s);
+                  setTimeout(() => 
+                    passwordRef.current?.focus(), 0);
+                  }
+                }
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} // { changed code }
+
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
