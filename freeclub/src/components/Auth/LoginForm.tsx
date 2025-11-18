@@ -141,11 +141,12 @@ const LoginForm: React.FC = () => {
                 className="w-full px-4 py-3 pr-12 border border-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
                 style={{ 
                   fontSize: '16px',
-                  WebkitTextSecurity: showPassword ? 'none' : 'disc',
-                  WebkitAppearance: 'none'
+                  height: '48px',
+                  lineHeight: 'normal'
                 } as React.CSSProperties}
                 placeholder="Ingrese su contraseña"
-                autoComplete="current-password "
+                autoComplete="current-password"
+                inputMode='text'
                 required
               />
               <button
@@ -153,6 +154,7 @@ const LoginForm: React.FC = () => {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-500 hover:text-dark-700"
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
