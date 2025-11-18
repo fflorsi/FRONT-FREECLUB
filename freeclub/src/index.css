@@ -9,14 +9,18 @@
   margin-bottom: 0 !important;
 }
 
-/* Hide native password reveal/clear icons */
+
+/* Hide native password reveal/clear icons - EXCEPT for iOS Safari */
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
   display: none;
 }
-/* Some WebKit variants */
-input[type="password"]::-webkit-textfield-decoration-container,
-input[type="password"]::-webkit-clear-button,
-input[type="password"]::-webkit-credentials-auto-fill-button {
-  display: none;
+
+/* Only hide on non-iOS devices */
+@supports not (-webkit-touch-callout: none) {
+  input[type="password"]::-webkit-textfield-decoration-container,
+  input[type="password"]::-webkit-clear-button,
+  input[type="password"]::-webkit-credentials-auto-fill-button {
+    display: none;
+  }
 }
